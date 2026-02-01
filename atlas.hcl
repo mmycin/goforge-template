@@ -18,7 +18,7 @@ env "gorm" {
 
   format {
     migrate {
-      diff = "{{ sql . \"  \" }}"
+      diff = "{{ sql . \"  \" }}"               # keep for indentation
     }
   }
 }
