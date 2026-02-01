@@ -1,12 +1,21 @@
 package console
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"ariga.io/atlas-provider-gorm/gormschema"
+	"github.com/mmycin/goforge/internal/database"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/driver/sqlserver"
+	"gorm.io/gorm"
 )
 
 func makeMigration(name string) {
@@ -49,8 +58,8 @@ func makeMigration(name string) {
 		}
 	}
 
-	// 5. SQLC Generate
-	makeGen() // Reuse the gen command logic
+	// 5. SQLC Generate - Removed as per request
+	// makeGen() // Reuse the gen command logic
 
 	log.Println("Migration creation flow completed.")
 }
@@ -72,14 +81,9 @@ func registerModels() error {
 		}
 	}
 
-	tmpl := `package main
+	tmpl := `package database
 
 import (
-	"fmt"
-	"os"
-
-	"ariga.io/atlas-provider-gorm/gormschema"
-
 {{- range . }}
 	"github.com/mmycin/goforge/internal/services/{{ . }}"
 {{- end }}
@@ -91,20 +95,6 @@ func Model() []any {
 		&{{ . }}.{{ title . }}{},
 {{- end }}
 	}
-}
-
-func main() {
-	models := Model()
-
-	loader := gormschema.New("sqlite")
-
-	stmts, err := loader.Load(models...)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Fprintln(os.Stdout, stmts)
 }
 `
 	funcMap := template.FuncMap{
@@ -130,4 +120,67 @@ func main() {
 	return t.Execute(f, services)
 }
 
-// migrateDB function removed as kernel.go is now package main and not importable.
+func runLoader() {
+	models := database.Model()
+	loader := gormschema.New("sqlite")
+	stmts, err := loader.Load(models...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stdout, stmts)
+}
+
+func migrateDB() {
+	dbName := os.Getenv("DB_NAME")
+	dbDriver := os.Getenv("DB_DRIVER") // mysql, postgres, sqlite, sqlserver
+	dbDsn := os.Getenv("DB_DSN")
+
+	if dbDriver == "" {
+		if strings.HasSuffix(dbName, ".db") {
+			dbDriver = "sqlite"
+			if dbDsn == "" {
+				dbDsn = dbName
+			}
+		} else {
+			conn := os.Getenv("DB_CONNECTION")
+			if conn != "" {
+				dbDriver = conn
+			} else {
+				dbDriver = "sqlite"
+			}
+		}
+	}
+
+	if dbDsn == "" {
+		dbDsn = dbName
+	}
+
+	log.Printf("Connecting to DB: %s (%s)", dbDriver, dbDsn)
+
+	var dialector gorm.Dialector
+	switch dbDriver {
+	case "mysql":
+		dialector = mysql.Open(dbDsn)
+	case "postgres":
+		dialector = postgres.Open(dbDsn)
+	case "sqlite":
+		dialector = sqlite.Open(dbDsn)
+	case "sqlserver":
+		dialector = sqlserver.Open(dbDsn)
+	default:
+		log.Fatalf("Unsupported driver: %s", dbDriver)
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	log.Println("Running GORM AutoMigrate...")
+	models := database.Model()
+	if err := db.AutoMigrate(models...); err != nil {
+		log.Fatalf("AutoMigrate failed: %v", err)
+	}
+	log.Println("Migration completed.")
+}

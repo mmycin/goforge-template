@@ -23,8 +23,10 @@ func Execute() {
 			log.Fatal("Usage: go run . make:migration <name>")
 		}
 		makeMigration(os.Args[2])
-	// case "migate", "migrate":
-	// 	migrateDB()
+	case "migate", "migrate":
+		migrateDB()
+	case "loader":
+		runLoader()
 	case "make":
 		if len(os.Args) < 4 || os.Args[2] != "service" {
 			log.Fatal("Usage: go run . make service <name>")
@@ -40,7 +42,7 @@ func Execute() {
 func help() {
 	fmt.Println("Available commands:")
 	fmt.Println("  make:migration <name>")
-	// fmt.Println("  migate (runs auto-migration)")
+	fmt.Println("  migate (runs auto-migration)")
 	fmt.Println("  make service <name>")
 	fmt.Println("  gen (runs sqlc generate)")
 }
