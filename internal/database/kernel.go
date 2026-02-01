@@ -1,7 +1,6 @@
 package database
 
 import (
-
 	"github.com/mmycin/goforge/internal/services/todo"
 )
 

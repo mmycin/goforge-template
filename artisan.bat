@@ -1,2 +1,2 @@
 @echo off
-go run . artisan %*
+go run . %*

@@ -5,8 +5,8 @@ sql:
     queries: "internal/database/queries"            # ← adjust if single file: "internal/database/queries/todo.sql"
     gen:
       go:
-        package: "dbqueries"                        # ← more descriptive; avoids clash with your 'database' pkg
-        out: "internal/database/generated"          # ← generated files go here
+        package: "sqlc"                        # ← more descriptive; avoids clash with your 'database' pkg
+        out: "internal/database/gen"          # ← generated files go here
         emit_json_tags: true                        # useful if you return structs as JSON sometimes
         emit_interface: true                        # generates Queries interface (good for mocking/tests)
         emit_exact_table_names: true                # keeps table names as-is (no pluralization surprises)
