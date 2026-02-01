@@ -3,7 +3,7 @@ data "external_schema" "gorm" {
     "go",
     "run",
     "-mod=mod",
-    "./internal/database/loader",   # ← path to the loader/main.go (relative to project root)
+    "./internal/database/kernel.go",
   ]
 }
 

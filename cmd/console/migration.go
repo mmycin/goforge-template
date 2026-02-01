@@ -7,13 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/mmycin/goforge/internal/database"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/driver/sqlserver"
-	"gorm.io/gorm"
 )
 
 func makeMigration(name string) {
@@ -79,9 +72,14 @@ func registerModels() error {
 		}
 	}
 
-	tmpl := `package database
+	tmpl := `package main
 
 import (
+	"fmt"
+	"os"
+
+	"ariga.io/atlas-provider-gorm/gormschema"
+
 {{- range . }}
 	"github.com/mmycin/goforge/internal/services/{{ . }}"
 {{- end }}
@@ -93,6 +91,20 @@ func Model() []any {
 		&{{ . }}.{{ title . }}{},
 {{- end }}
 	}
+}
+
+func main() {
+	models := Model()
+
+	loader := gormschema.New("sqlite")
+
+	stmts, err := loader.Load(models...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintln(os.Stdout, stmts)
 }
 `
 	funcMap := template.FuncMap{
@@ -118,58 +130,4 @@ func Model() []any {
 	return t.Execute(f, services)
 }
 
-func migrateDB() {
-	dbName := os.Getenv("DB_NAME")
-	dbDriver := os.Getenv("DB_DRIVER") // mysql, postgres, sqlite, sqlserver
-	dbDsn := os.Getenv("DB_DSN")
-
-	if dbDriver == "" {
-		// Fallback or guess
-		if strings.HasSuffix(dbName, ".db") {
-			dbDriver = "sqlite"
-			if dbDsn == "" {
-				dbDsn = dbName
-			}
-		} else {
-			// default to sqlite if nothing specified, or check DB_CONNECTION
-			conn := os.Getenv("DB_CONNECTION") // Laravel style
-			if conn != "" {
-				dbDriver = conn
-			} else {
-				dbDriver = "sqlite" // default
-			}
-		}
-	}
-
-	if dbDsn == "" {
-		dbDsn = dbName // hope for the best
-	}
-
-	log.Printf("Connecting to DB: %s (%s)", dbDriver, dbDsn)
-
-	var dialector gorm.Dialector
-	switch dbDriver {
-	case "mysql":
-		dialector = mysql.Open(dbDsn)
-	case "postgres":
-		dialector = postgres.Open(dbDsn)
-	case "sqlite":
-		dialector = sqlite.Open(dbDsn)
-	case "sqlserver":
-		dialector = sqlserver.Open(dbDsn)
-	default:
-		log.Fatalf("Unsupported driver: %s", dbDriver)
-	}
-
-	db, err := gorm.Open(dialector, &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-
-	log.Println("Running GORM AutoMigrate...")
-	models := database.Model()
-	if err := db.AutoMigrate(models...); err != nil {
-		log.Fatalf("AutoMigrate failed: %v", err)
-	}
-	log.Println("Migration completed.")
-}
+// migrateDB function removed as kernel.go is now package main and not importable.

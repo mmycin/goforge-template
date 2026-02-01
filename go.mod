@@ -2,14 +2,7 @@ module github.com/mmycin/goforge
 
 go 1.24.5
 
-require (
-	ariga.io/atlas-provider-gorm v0.6.0
-	gorm.io/driver/mysql v1.5.7
-	gorm.io/driver/postgres v1.5.11
-	gorm.io/driver/sqlite v1.5.7
-	gorm.io/driver/sqlserver v1.5.4
-	gorm.io/gorm v1.30.1
-)
+require ariga.io/atlas-provider-gorm v0.6.0
 
 require (
 	ariga.io/atlas v0.36.2-0.20250806044935-5bb51a0a956e // indirect
@@ -78,4 +71,9 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
+	gorm.io/driver/mysql v1.5.7 // indirect
+	gorm.io/driver/postgres v1.5.11 // indirect
+	gorm.io/driver/sqlite v1.5.7 // indirect
+	gorm.io/driver/sqlserver v1.5.4 // indirect
+	gorm.io/gorm v1.30.1 // indirect
 )
