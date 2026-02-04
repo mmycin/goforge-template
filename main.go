@@ -1,7 +1,15 @@
 package main
 
-import "github.com/mmycin/goforge/cmd/console"
+import (
+	"fmt"
+	"os"
+
+	"github.com/mmycin/goforge/cmd/console"
+)
 
 func main() {
-	console.Execute()
+	if err := console.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

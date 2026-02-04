@@ -2,7 +2,6 @@ package console
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,48 +19,48 @@ import (
 
 func makeMigration(name string) {
 	// 1. Register Models
-	log.Println("Registering models...")
+	fmt.Println("→ Registering models...")
 	if err := registerModels(); err != nil {
-		log.Fatalf("Failed to register models: %v", err)
+		fmt.Printf("Error: Failed to register models: %v\n", err)
+		os.Exit(1)
 	}
 
 	// 2. Atlas Migrate Hash (before Diff)
-	log.Println("Running atlas migrate hash...")
+	fmt.Println("→ Running atlas migrate hash...")
 	cmd := exec.Command("atlas", "migrate", "hash", "--env", "gorm")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("Atlas hash failed: %v", err)
+		fmt.Printf("Error: Atlas hash failed: %v\n", err)
+		os.Exit(1)
 	}
 
 	// 3. Atlas Migrate Diff
-	log.Println("Running atlas migrate diff...")
+	fmt.Println("→ Running atlas migrate diff...")
 	cmd = exec.Command("atlas", "migrate", "diff", "--env", "gorm", name)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("Atlas migration failed: %v", err)
+		fmt.Printf("Error: Atlas migration failed: %v\n", err)
+		os.Exit(1)
 	}
 
 	// 4. Cleanup SQL (sed replacement)
-	log.Println("Applying sed fix...")
+	fmt.Println("→ Cleaning up SQL files...")
 	files, _ := filepath.Glob("internal/database/migrations/*.sql")
 	for _, f := range files {
 		content, err := os.ReadFile(f)
 		if err != nil {
-			log.Printf("Failed to read %s: %v", f, err)
+			fmt.Printf("Warning: Failed to read %s: %v\n", f, err)
 			continue
 		}
 		newContent := strings.ReplaceAll(string(content), "`", "")
 		if err := os.WriteFile(f, []byte(newContent), 0644); err != nil {
-			log.Printf("Failed to write %s: %v", f, err)
+			fmt.Printf("Warning: Failed to write %s: %v\n", f, err)
 		}
 	}
 
-	// 5. SQLC Generate - Removed as per request
-	// makeGen() // Reuse the gen command logic
-
-	log.Println("Migration creation flow completed.")
+	fmt.Println("✓ Migration created successfully")
 }
 
 func registerModels() error {
@@ -125,7 +124,7 @@ func runLoader() {
 	loader := gormschema.New("sqlite")
 	stmts, err := loader.Load(models...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: Failed to load GORM schema: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stdout, stmts)
@@ -156,7 +155,7 @@ func migrateDB() {
 		dbDsn = dbName
 	}
 
-	log.Printf("Connecting to DB: %s (%s)", dbDriver, dbDsn)
+	fmt.Printf("→ Connecting to database: %s\n", dbDriver)
 
 	var dialector gorm.Dialector
 	switch dbDriver {
@@ -169,18 +168,21 @@ func migrateDB() {
 	case "sqlserver":
 		dialector = sqlserver.Open(dbDsn)
 	default:
-		log.Fatalf("Unsupported driver: %s", dbDriver)
+		fmt.Printf("Error: Unsupported database driver: %s\n", dbDriver)
+		os.Exit(1)
 	}
 
 	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		fmt.Printf("Error: Failed to connect to database: %v\n", err)
+		os.Exit(1)
 	}
 
-	log.Println("Running GORM AutoMigrate...")
+	fmt.Println("→ Running GORM AutoMigrate...")
 	models := database.Model()
 	if err := db.AutoMigrate(models...); err != nil {
-		log.Fatalf("AutoMigrate failed: %v", err)
+		fmt.Printf("Error: AutoMigrate failed: %v\n", err)
+		os.Exit(1)
 	}
-	log.Println("Migration completed.")
+	fmt.Println("✓ Database migration completed successfully")
 }
