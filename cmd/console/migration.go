@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"ariga.io/atlas-provider-gorm/gormschema"
+	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/database"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -131,28 +132,34 @@ func runLoader() {
 }
 
 func migrateDB() {
-	dbName := os.Getenv("DB_NAME")
-	dbDriver := os.Getenv("DB_DRIVER") // mysql, postgres, sqlite, sqlserver
-	dbDsn := os.Getenv("DB_DSN")
+	dbName := config.DB.Name
+	dbDriver := config.DB.Connection
+	dbDsn := ""
 
 	if dbDriver == "" {
 		if strings.HasSuffix(dbName, ".db") {
 			dbDriver = "sqlite"
-			if dbDsn == "" {
-				dbDsn = dbName
-			}
+			dbDsn = dbName
 		} else {
-			conn := os.Getenv("DB_CONNECTION")
-			if conn != "" {
-				dbDriver = conn
-			} else {
-				dbDriver = "sqlite"
-			}
+			dbDriver = "sqlite"
 		}
 	}
 
 	if dbDsn == "" {
-		dbDsn = dbName
+		// Build DSN based on driver
+		switch dbDriver {
+		case "mysql":
+			dbDsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
+		case "postgres":
+			dbDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
+				config.DB.Host, config.DB.Username, config.DB.Password, config.DB.Name, config.DB.Port)
+		case "sqlite":
+			dbDsn = dbName
+		case "sqlserver":
+			dbDsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
+		}
 	}
 
 	fmt.Printf("→ Connecting to database: %s\n", dbDriver)
