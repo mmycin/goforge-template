@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 // Logger returns a gin middleware for logging requests
@@ -31,11 +32,12 @@ func CustomLogger() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		// TODO: Replace with zerolog when implemented
-		_ = latency
-		_ = clientIP
-		_ = method
-		_ = statusCode
-		_ = path
+		log.Info().
+			Str("method", method).
+			Str("path", path).
+			Int("status", statusCode).
+			Str("ip", clientIP).
+			Dur("latency", latency).
+			Msg("HTTP Request")
 	}
 }

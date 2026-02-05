@@ -19,6 +19,8 @@ tools for database migrations, code generation, and service scaffolding.`,
 			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
 			os.Exit(1)
 		}
+		// Initialize logger after config is loaded
+		initLogger()
 	},
 }
 

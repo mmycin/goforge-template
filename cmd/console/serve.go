@@ -6,6 +6,7 @@ import (
 
 	"github.com/mmycin/goforge/cmd/api"
 	"github.com/mmycin/goforge/internal/server"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +15,7 @@ var serveCmd = &cobra.Command{
 	Short: "Start the HTTP API server",
 	Long:  `Launch the Gin-powered REST API server with graceful shutdown support.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 Initializing GoForge API Server...")
+		log.Info().Msg("Initializing GoForge API Server")
 
 		// Get all routers
 		routers := api.GetRouters()

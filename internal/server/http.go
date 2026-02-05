@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/server/middleware"
+	"github.com/rs/zerolog/log"
 )
 
 // HTTPServer represents the HTTP server
@@ -69,43 +70,44 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 
 // Start starts the HTTP server with graceful shutdown
 func (s *HTTPServer) Start() error {
-	// Channel to listen for errors from the server
-	serverErrors := make(chan error, 1)
+	fmt.Println("→ Starting server initialization...")
 
-	// Start server in a goroutine
+	// Initializing the server in a goroutine so that
+	// it won't block the graceful shutdown handling below
 	go func() {
-		fmt.Printf("→ Starting HTTP server on %s\n", s.server.Addr)
-		serverErrors <- s.server.ListenAndServe()
+		log.Info().Str("addr", s.server.Addr).Msg("Starting HTTP server")
+		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("HTTP server ListenAndServe failed")
+		}
 	}()
 
 	// Channel to listen for interrupt signals
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	// Block until we receive a signal or an error
-	select {
-	case err := <-serverErrors:
-		if err != nil && err != http.ErrServerClosed {
-			return fmt.Errorf("server error: %w", err)
-		}
+	fmt.Println("→ Server is running. Press Ctrl+C to stop.")
 
-	case sig := <-shutdown:
-		fmt.Printf("\n→ Received signal: %v\n", sig)
-		fmt.Println("→ Starting graceful shutdown...")
+	// Block until we receive a signal
+	sig := <-quit
+	log.Info().Str("signal", sig.String()).Msg("Shutdown signal received")
+	fmt.Printf("\n→ Received signal: %v. Initiating graceful shutdown...\n", sig)
 
-		// Create context with timeout for shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
+	// Create context with timeout for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-		// Attempt graceful shutdown
-		if err := s.server.Shutdown(ctx); err != nil {
-			// Force close if graceful shutdown fails
-			s.server.Close()
-			return fmt.Errorf("server shutdown error: %w", err)
-		}
-
-		fmt.Println("✓ Server stopped gracefully")
+	// Attempt graceful shutdown
+	if err := s.server.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("Server forced to shutdown")
+		fmt.Printf("! Server forced to shutdown: %v\n", err)
+		return err
 	}
+
+	log.Info().Msg("Server stopped gracefully")
+	fmt.Println("✓ Server stopped gracefully")
+
+	// Small delay to ensure logs are written
+	time.Sleep(500 * time.Millisecond)
 
 	return nil
 }
