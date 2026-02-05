@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync" // Added sync for registry
 	"syscall"
 	"time"
 
@@ -14,6 +15,33 @@ import (
 	"github.com/mmycin/goforge/internal/server/middleware"
 	"github.com/rs/zerolog/log"
 )
+
+// Router interface for service route registration
+type Router interface {
+	Register(engine gin.IRouter)
+}
+
+var (
+	routers []Router
+	mu      sync.Mutex
+)
+
+// Register adds a router to the global registry
+func Register(r Router) {
+	mu.Lock()
+	defer mu.Unlock()
+	routers = append(routers, r)
+}
+
+// GetRegisteredRouters returns all registered routers
+func GetRegisteredRouters() []Router {
+	mu.Lock()
+	defer mu.Unlock()
+
+	r := make([]Router, len(routers))
+	copy(r, routers)
+	return r
+}
 
 // HTTPServer represents the HTTP server
 type HTTPServer struct {

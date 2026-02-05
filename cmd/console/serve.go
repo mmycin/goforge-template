@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmycin/goforge/cmd/api"
 	"github.com/mmycin/goforge/internal/server"
+	"github.com/mmycin/goforge/internal/services"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +18,7 @@ var serveCmd = &cobra.Command{
 		log.Info().Msg("Initializing GoForge API Server")
 
 		// Get all routers
-		routers := api.GetRouters()
+		routers := services.GetRouters()
 
 		// Create and start server
 		srv := server.NewHTTPServer(routers)

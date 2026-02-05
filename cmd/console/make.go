@@ -5,12 +5,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
+
+var makeServiceCmd = &cobra.Command{
+	Use:   "make:service [name]",
+	Short: "Create a new service",
+	Long:  `Generate a new service with handler, repository, model, routes, and proto files.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		fmt.Printf("Creating service: %s\n", name)
+		makeService(name)
+	},
+}
 
 func makeService(name string) {
 	targetDir := filepath.Join("internal/services", name)
 
-	// Check if service already exists
 	if _, err := os.Stat(targetDir); err == nil {
 		fmt.Printf("Error: Service '%s' already exists\n", name)
 		os.Exit(1)
@@ -21,7 +34,6 @@ func makeService(name string) {
 		os.Exit(1)
 	}
 
-	// Templates based on 'todo' service.
 	files := map[string]string{
 		"handler.go": fmt.Sprintf(`package %s
 
@@ -81,7 +93,6 @@ func (r *%sRouter) Register(engine gin.IRouter) {
 		}
 	}
 
-	// Update internal/services/kernel.go
 	updateKernel(name)
 
 	fmt.Printf("✓ Service '%s' created successfully and auto-registered\n", name)
@@ -110,7 +121,6 @@ func updateKernel(name string) {
 	}
 
 	if !added {
-		// Fallback if structure is different than expected
 		fmt.Printf("Warning: Could not automatically update %s. Please add %s manually.\n", kernelPath, importLine)
 		return
 	}

@@ -11,6 +11,7 @@ import (
 	"ariga.io/atlas-provider-gorm/gormschema"
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/database"
+	"github.com/spf13/cobra"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -18,15 +19,70 @@ import (
 	"gorm.io/gorm"
 )
 
+// migrateCmd represents the migrate command
+var migrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Run database migrations",
+	Long:  `Execute GORM AutoMigrate to synchronize database schema with models.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Running database migration...")
+		migrateDB()
+	},
+}
+
+// genMigrationCmd represents the gen:migration command
+var genMigrationCmd = &cobra.Command{
+	Use:   "gen:migration [name]",
+	Short: "Create a new database migration",
+	Long:  `Generate a new database migration file with the specified name.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		fmt.Printf("Creating migration: %s\n", name)
+		makeMigration(name)
+	},
+}
+
+// loaderCmd represents the loader command
+var loaderCmd = &cobra.Command{
+	Use:   "loader",
+	Short: "Run GORM schema loader",
+	Long:  `Load and display GORM schema definitions.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		runLoader()
+	},
+}
+
+// genSqlcCmd represents the gen:sqlc command
+var genSqlcCmd = &cobra.Command{
+	Use:   "gen:sqlc",
+	Short: "Run code generation",
+	Long:  `Execute sqlc generate to create database query code.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Running code generation...")
+		makeGen()
+	},
+}
+
+func makeGen() {
+	fmt.Println("Executing sqlc generate...")
+	cmd := exec.Command("sqlc", "generate")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error: sqlc generate failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("✓ Code generation completed successfully")
+}
+
 func makeMigration(name string) {
-	// 1. Register Models
 	fmt.Println("→ Registering models...")
 	if err := registerModels(); err != nil {
 		fmt.Printf("Error: Failed to register models: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 2. Atlas Migrate Hash (before Diff)
 	fmt.Println("→ Running atlas migrate hash...")
 	cmd := exec.Command("atlas", "migrate", "hash", "--env", "gorm")
 	cmd.Stdout = os.Stdout
@@ -36,7 +92,6 @@ func makeMigration(name string) {
 		os.Exit(1)
 	}
 
-	// 3. Atlas Migrate Diff
 	fmt.Println("→ Running atlas migrate diff...")
 	cmd = exec.Command("atlas", "migrate", "diff", "--env", "gorm", name)
 	cmd.Stdout = os.Stdout
@@ -46,7 +101,6 @@ func makeMigration(name string) {
 		os.Exit(1)
 	}
 
-	// 4. Cleanup SQL (sed replacement)
 	fmt.Println("→ Cleaning up SQL files...")
 	files, _ := filepath.Glob("internal/database/migrations/*.sql")
 	for _, f := range files {
@@ -60,7 +114,6 @@ func makeMigration(name string) {
 			fmt.Printf("Warning: Failed to write %s: %v\n", f, err)
 		}
 	}
-
 	fmt.Println("✓ Migration created successfully")
 }
 
@@ -146,7 +199,6 @@ func migrateDB() {
 	}
 
 	if dbDsn == "" {
-		// Build DSN based on driver
 		switch dbDriver {
 		case "mysql":
 			dbDsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
