@@ -34,4 +34,6 @@ func init() {
 	rootCmd.AddCommand(genSqlcCmd)
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(loaderCmd)
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(genKeyCmd)
 }
