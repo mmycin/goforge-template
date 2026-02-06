@@ -63,6 +63,7 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 	engine.Use(middleware.Recovery())
 	engine.Use(middleware.CustomLogger())
 	engine.Use(middleware.CORS())
+	engine.Use(middleware.RateLimiter())
 
 	// Health check endpoint (Public)
 	engine.GET("/health", func(c *gin.Context) {
