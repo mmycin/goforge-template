@@ -16,7 +16,7 @@ var makeServiceCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		fmt.Printf("Creating service: %s\n", name)
+		Info("Creating service: %s", name)
 		makeService(name)
 	},
 }
@@ -25,14 +25,16 @@ func makeService(name string) {
 	targetDir := filepath.Join("internal/services", name)
 
 	if _, err := os.Stat(targetDir); err == nil {
-		fmt.Printf("Error: Service '%s' already exists\n", name)
+		Error("Service '%s' already exists", name)
 		os.Exit(1)
 	}
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		fmt.Printf("Error: Failed to create directory: %v\n", err)
+		Error("Failed to create directory: %v", err)
 		os.Exit(1)
 	}
+
+	camelName := toCamelCase(name)
 
 	files := map[string]string{
 		"handler.go": fmt.Sprintf(`package %s
@@ -58,9 +60,9 @@ func (h *%sHandler) GetByID(c *gin.Context) {
 		"data":    nil,
 	})
 }
-`, name, strings.Title(name), strings.Title(name), strings.Title(name)),
-		"proto.go": "package " + name + "\n",
-		"repo.go":  "package " + name + "\n",
+`, name, camelName, camelName, camelName),
+		"grpc.go": "package " + name + "\n",
+		"repo.go": "package " + name + "\n",
 		"routes.go": fmt.Sprintf(`package %s
 
 import (
@@ -82,20 +84,66 @@ func (r *%sRouter) Register(engine gin.IRouter) {
 		group.GET("/:id", h.GetByID)
 	}
 }
-`, name, strings.Title(name), strings.Title(name), strings.Title(name), strings.Title(name), name),
+`, name, camelName, camelName, camelName, camelName, name),
 		"service.go": "package " + name + "\n",
-		"model.go":   fmt.Sprintf("package %s\n\nimport \"time\"\n\ntype %s struct {\n\tID        uint      `gorm:\"primaryKey;autoIncrement\"`\n\tCreatedAt time.Time `gorm:\"autoCreateTime\"`\n\tUpdatedAt time.Time `gorm:\"autoUpdateTime\"`\n}\n", name, strings.Title(name)),
+		"model.go":   fmt.Sprintf("package %s\n\nimport \"time\"\n\ntype %s struct {\n\tID        uint      `gorm:\"primaryKey;autoIncrement\"`\n\tCreatedAt time.Time `gorm:\"autoCreateTime\"`\n\tUpdatedAt time.Time `gorm:\"autoUpdateTime\"`\n}\n", name, camelName),
 	}
 
 	for fname, content := range files {
 		if err := os.WriteFile(filepath.Join(targetDir, fname), []byte(content), 0644); err != nil {
-			fmt.Printf("Error: Failed to write %s: %v\n", fname, err)
+			Error("Failed to write %s: %v", fname, err)
+		}
+	}
+
+	// Create proto directory and file
+	protoDir := filepath.Join("proto", name)
+	if err := os.MkdirAll(protoDir, 0755); err != nil {
+		Error("Failed to create proto directory: %v", err)
+	} else {
+		protoContent := fmt.Sprintf(`syntax = "proto3";
+
+package %s;
+
+option go_package = "github.com/mmycin/goforge/proto/%s/gen";
+
+service %sService {
+	rpc Create(CreateRequest) returns (CreateResponse);
+	rpc Get(GetRequest) returns (GetResponse);
+	rpc List(ListRequest) returns (ListResponse);
+	rpc Update(UpdateRequest) returns (UpdateResponse);
+	rpc Delete(DeleteRequest) returns (DeleteResponse);
+}
+
+message %s {
+	string id = 1;
+	string created_at = 2;
+	string updated_at = 3;
+}
+
+message CreateRequest {}
+message CreateResponse {}
+
+message GetRequest { string id = 1; }
+message GetResponse {}
+
+message ListRequest { int32 page = 1; int32 limit = 2; }
+message ListResponse {}
+
+message UpdateRequest { string id = 1; }
+message UpdateResponse {}
+
+message DeleteRequest { string id = 1; }
+message DeleteResponse {}
+`, name, name, camelName, camelName)
+
+		if err := os.WriteFile(filepath.Join(protoDir, name+".proto"), []byte(protoContent), 0644); err != nil {
+			Error("Failed to write proto file: %v", err)
 		}
 	}
 
 	updateKernel(name)
 
-	fmt.Printf("✓ Service '%s' created successfully and auto-registered\n", name)
+	Success("Service '%s' created successfully with proto template and auto-registered", name)
 }
 
 func updateKernel(name string) {
@@ -104,7 +152,7 @@ func updateKernel(name string) {
 
 	content, err := os.ReadFile(kernelPath)
 	if err != nil {
-		fmt.Printf("Warning: Could not read %s: %v\n", kernelPath, err)
+		Warning("Could not read %s: %v", kernelPath, err)
 		return
 	}
 
@@ -121,12 +169,12 @@ func updateKernel(name string) {
 	}
 
 	if !added {
-		fmt.Printf("Warning: Could not automatically update %s. Please add %s manually.\n", kernelPath, importLine)
+		Warning("Could not automatically update %s. Please add %s manually.", kernelPath, importLine)
 		return
 	}
 
 	err = os.WriteFile(kernelPath, []byte(strings.Join(newLines, "\n")), 0644)
 	if err != nil {
-		fmt.Printf("Warning: Could not write to %s: %v\n", kernelPath, err)
+		Warning("Could not write to %s: %v", kernelPath, err)
 	}
 }

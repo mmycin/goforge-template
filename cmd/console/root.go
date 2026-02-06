@@ -38,4 +38,6 @@ func init() {
 	rootCmd.AddCommand(loaderCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(genKeyCmd)
+	rootCmd.AddCommand(genProtoCmd)
+	rootCmd.AddCommand(removeServiceCmd)
 }

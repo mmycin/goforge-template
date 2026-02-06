@@ -4,11 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync" // Added sync for registry
-	"syscall"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mmycin/goforge/internal/config"
@@ -97,47 +93,12 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 	}
 }
 
-// Start starts the HTTP server with graceful shutdown
+// Start starts the HTTP server
 func (s *HTTPServer) Start() error {
-	fmt.Println("→ Starting server initialization...")
-
-	// Initializing the server in a goroutine so that
-	// it won't block the graceful shutdown handling below
-	go func() {
-		log.Info().Str("addr", s.server.Addr).Msg("Starting HTTP server")
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("HTTP server ListenAndServe failed")
-		}
-	}()
-
-	// Channel to listen for interrupt signals
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
-	fmt.Println("→ Server is running. Press Ctrl+C to stop.")
-
-	// Block until we receive a signal
-	sig := <-quit
-	log.Info().Str("signal", sig.String()).Msg("Shutdown signal received")
-	fmt.Printf("\n→ Received signal: %v. Initiating graceful shutdown...\n", sig)
-
-	// Create context with timeout for shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Attempt graceful shutdown
-	if err := s.server.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("Server forced to shutdown")
-		fmt.Printf("! Server forced to shutdown: %v\n", err)
-		return err
+	log.Info().Str("addr", s.server.Addr).Msg("Starting HTTP server")
+	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("HTTP server ListenAndServe failed: %w", err)
 	}
-
-	log.Info().Msg("Server stopped gracefully")
-	fmt.Println("✓ Server stopped gracefully")
-
-	// Small delay to ensure logs are written
-	time.Sleep(500 * time.Millisecond)
-
 	return nil
 }
 

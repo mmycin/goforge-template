@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package todo;
+option go_package = "github.com/mmycin/goforge/proto/todo/gen";
+
+service TodoService {
+        rpc CreateTodo(CreateTodoRequest) returns (Todo);
+        rpc GetTodo(GetTodoRequest) returns (Todo);
+        rpc ListTodos(ListTodoRequest) returns (ListTodoResponse);
+        rpc UpdateTodo(UpdateTodoRequest) returns (Todo);
+        rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
+}
+
+message Todo {
+        string id = 1;
+        string title = 2;
+        string description = 3;
+        bool completed = 4;
+        string created_at = 5;
+        string updated_at = 6;
+}
+
+message CreateTodoRequest {
+        string title = 1;
+        string description = 2;
+}
+
+message GetTodoRequest {
+        string id = 1;
+}
+
+message ListTodoRequest {
+        int32 page = 1;
+        int32 limit = 2;
+        bool completed = 3;
+}
+
+message ListTodoResponse {
+        repeated Todo todos = 1;
+        int32 total = 2;
+        int32 page = 3;
+        int32 total_pages = 4;
+}
+
+message UpdateTodoRequest {
+        string id = 1;
+        string title = 2;
+        string description = 3;
+        bool completed = 4;
+}
+
+message DeleteTodoRequest {
+        string id = 1;
+}
+
+message DeleteTodoResponse {
+        bool success = 1;
+}

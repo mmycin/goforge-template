@@ -159,6 +159,20 @@ go test ./internal/services/todo/...
 
 ---
 
+## 🔮 gRPC Support
+
+GoForge supports running a gRPC server concurrently with the HTTP server.
+
+1.  **Enable gRPC**: Set `GRPC_ENABLE=true` in `.env`.
+2.  **Define Service**: Create your `.proto` file in `proto/<service>/<service>.proto`.
+3.  **Generate Code**:
+    ```bash
+    go run . gen:proto <service_name>
+    ```
+4.  **Implement Server**: Edit `internal/services/<service>/grpc.go` to implement your logic.
+
+---
+
 ## 📜 License
 
 MIT

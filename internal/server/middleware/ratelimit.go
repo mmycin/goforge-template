@@ -24,29 +24,36 @@ func init() {
 	go cleanupClients()
 }
 
+// GetLimiter returns a rate limiter for the given IP
+func GetLimiter(ip string) *rate.Limiter {
+	limit := config.HTTP.RateLimitPerMinute
+	if limit <= 0 {
+		return nil
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	v, exists := clients[ip]
+	if !exists {
+		// rate.Limit is requests per second.
+		// We want limit per minute, so we divide by 60.
+		limiter := rate.NewLimiter(rate.Limit(float64(limit)/60.0), limit)
+		clients[ip] = &client{limiter: limiter, lastSeen: time.Now()}
+		return limiter
+	}
+
+	v.lastSeen = time.Now()
+	return v.limiter
+}
+
 // RateLimiter returns a gin.HandlerFunc that limits requests per IP
 func RateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		limit := config.HTTP.RateLimitPerMinute
-		if limit <= 0 {
-			c.Next()
-			return
-		}
-
 		ip := c.ClientIP()
-		mu.Lock()
-		v, exists := clients[ip]
-		if !exists {
-			// rate.Limit is requests per second.
-			// We want limit per minute, so we divide by 60.
-			limiter := rate.NewLimiter(rate.Limit(float64(limit)/60.0), limit)
-			clients[ip] = &client{limiter: limiter, lastSeen: time.Now()}
-			v = clients[ip]
-		}
-		v.lastSeen = time.Now()
-		mu.Unlock()
+		limiter := GetLimiter(ip)
 
-		if !v.limiter.Allow() {
+		if limiter != nil && !limiter.Allow() {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Rate limit exceeded. Please try again later.",
 			})
