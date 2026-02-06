@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mmycin/goforge/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +36,12 @@ func makeService(name string) {
 	}
 
 	camelName := toCamelCase(name)
+	moduleName := config.App.Module
+	if moduleName == "" {
+		// Fallback or error if not set, though Load() should handle it
+		moduleName = "github.com/mmycin/goforge"
+		Warning("APP_MODULE not set, using default: %s", moduleName)
+	}
 
 	files := map[string]string{
 		"handler.go": fmt.Sprintf(`package %s
@@ -50,41 +57,66 @@ type %sHandler struct {}
 func (h *%sHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Data retrieved",
-		"data":    nil,
+		"data":    []string{},
 	})
 }
 
 func (h *%sHandler) GetByID(c *gin.Context) {
+	id := c.Param("id")
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Detail retrieved",
-		"data":    nil,
+		"data":    id,
 	})
 }
 `, name, camelName, camelName, camelName),
 		"grpc.go": "package " + name + "\n",
-		"repo.go": "package " + name + "\n",
 		"routes.go": fmt.Sprintf(`package %s
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/internal/server"
+	"%s/internal/server"
 )
 
 func init() {
-	server.Register(&%sRouter{})
+	server.Register(&%sRoutes{})
 }
 
-type %sRouter struct{}
+type %sRoutes struct{}
 
-func (r *%sRouter) Register(engine gin.IRouter) {
+func (r *%sRoutes) Register(engine *gin.Engine) {
 	h := &%sHandler{}
-	group := engine.Group("/%ss")
-	{
-		group.GET("", h.GetAll)
-		group.GET("/:id", h.GetByID)
-	}
+
+	group := engine.Group("/api/%ss")
+	// Middleware is applied globally in server/http.go
+
+	group.GET("/", h.GetAll)
+	group.GET("/:id", h.GetByID)
 }
-`, name, camelName, camelName, camelName, camelName, name),
+`, name, moduleName, camelName, camelName, camelName, camelName, name),
+		"docs.go": fmt.Sprintf(`package %s
+
+import (
+	"github.com/danielgtaylor/huma/v2/adapters/humagin"
+	"github.com/gin-gonic/gin"
+	"%s/internal/server"
+)
+
+func init() {
+	server.Register(&%sDocs{})
+}
+
+type %sDocs struct{}
+
+func (d *%sDocs) Register(engine *gin.Engine) {
+	config := server.NewHumaConfig("%s API", "1.0.0", "/api/docs/%s")
+	
+	// Create API instance
+	humagin.New(engine, config)
+	
+	// Register Huma operations here if you want to generate OpenAPI spec
+	// usage: huma.Register(api, operation, handler)
+}
+`, name, moduleName, camelName, camelName, camelName, name, name),
 		"service.go": "package " + name + "\n",
 		"model.go":   fmt.Sprintf("package %s\n\nimport \"time\"\n\ntype %s struct {\n\tID        uint      `gorm:\"primaryKey;autoIncrement\"`\n\tCreatedAt time.Time `gorm:\"autoCreateTime\"`\n\tUpdatedAt time.Time `gorm:\"autoUpdateTime\"`\n}\n", name, camelName),
 	}
@@ -100,11 +132,12 @@ func (r *%sRouter) Register(engine gin.IRouter) {
 	if err := os.MkdirAll(protoDir, 0755); err != nil {
 		Error("Failed to create proto directory: %v", err)
 	} else {
+		// Proto content stays similar but ensure package name is simple
 		protoContent := fmt.Sprintf(`syntax = "proto3";
 
 package %s;
 
-option go_package = "github.com/mmycin/goforge/proto/%s/gen";
+option go_package = "%s/proto/%s/gen";
 
 service %sService {
 	rpc Create(CreateRequest) returns (CreateResponse);
@@ -134,21 +167,21 @@ message UpdateResponse {}
 
 message DeleteRequest { string id = 1; }
 message DeleteResponse {}
-`, name, name, camelName, camelName)
+`, name, moduleName, name, camelName, camelName)
 
 		if err := os.WriteFile(filepath.Join(protoDir, name+".proto"), []byte(protoContent), 0644); err != nil {
 			Error("Failed to write proto file: %v", err)
 		}
 	}
 
-	updateKernel(name)
+	updateKernel(name, moduleName)
 
 	Success("Service '%s' created successfully with proto template and auto-registered", name)
 }
 
-func updateKernel(name string) {
+func updateKernel(name, moduleName string) {
 	kernelPath := "internal/services/kernel.go"
-	importLine := fmt.Sprintf("\t_ \"github.com/mmycin/goforge/internal/services/%s\"", name)
+	importLine := fmt.Sprintf("\t_ \"%s/internal/services/%s\"", moduleName, name)
 
 	content, err := os.ReadFile(kernelPath)
 	if err != nil {

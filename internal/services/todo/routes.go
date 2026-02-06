@@ -6,29 +6,17 @@ import (
 )
 
 func init() {
-	server.Register(&TodoRouter{})
+	server.Register(&TodoRoutes{})
 }
 
-// TodoRouter handles routing for the todo service
-type TodoRouter struct{}
+type TodoRoutes struct{}
 
-// Register registers todo routes to the gin engine
-func (r *TodoRouter) Register(engine gin.IRouter) {
+func (r *TodoRoutes) Register(engine *gin.Engine) {
 	h := &TodoHandler{}
 
-	// Pattern: router.Group("/todos", func(route) { ... })
-	// We use a closure to match the spirit of the DX request
-	RegisterGroup(engine, "/todos", func(group *gin.RouterGroup) {
-		group.GET("/", h.GetAllTodos)
-		group.GET("/:id", h.GetTodoByID)
-		group.POST("/", h.CreateTodo)
-		group.PUT("/:id", h.UpdateTodo)
-		group.DELETE("/:id", h.DeleteTodo)
-	})
-}
+	group := engine.Group("/api/todos")
+	// group.Use(server.AuthMiddleware())
 
-// RegisterGroup is a helper to support the callback-based grouping DX
-func RegisterGroup(engine gin.IRouter, Path string, fn func(*gin.RouterGroup)) {
-	group := engine.Group(Path)
-	fn(group)
+	group.GET("/", h.GetAll)
+	group.GET("/:id", h.GetByID)
 }

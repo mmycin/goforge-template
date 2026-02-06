@@ -8,14 +8,14 @@ GoForge is a minimal, lightweight, fast, and DX-friendly microservice starter te
 - **Configuration**: Structured and type-safe using Viper (`config.DB.Name`)
 - **HTTP Server**: Fast and robust REST APIs with Gin
 - **Database**:
-    - **ORM**: GORM for easy relational mapping
-    - **Query**: SQLC for type-safe, performant raw SQL
-    - **Migrations**: Versioned migrations using Atlas
+  - **ORM**: GORM for easy relational mapping
+  - **Query**: SQLC for type-safe, performant raw SQL
+  - **Migrations**: Versioned migrations using Atlas
 - **Developer Experience**:
-    - Modular service structure
-    - Automatic route registration
-    - Graceful shutdown support
-    - Service scaffolding via CLI
+  - Modular service structure
+  - Automatic route registration
+  - Graceful shutdown support
+  - Service scaffolding via CLI
 
 ## 🛠️ Getting Started
 
@@ -29,13 +29,13 @@ GoForge is a minimal, lightweight, fast, and DX-friendly microservice starter te
 
 1. Clone the repository
 2. Install dependencies:
-    ```bash
-    go mod tidy
-    ```
+   ```bash
+   go mod tidy
+   ```
 3. Configure your environment:
-    ```bash
-    cp .env.example .env # Ensure .env exists
-    ```
+   ```bash
+   cp .env.example .env # Ensure .env exists
+   ```
 
 ## 💻 CLI Usage
 
@@ -52,15 +52,15 @@ go run . serve
 GoForge includes an `App-Key` middleware by default to protect your APIs.
 
 1. **Generate a Key**:
-    ```bash
-    go run . gen:key
-    ```
+   ```bash
+   go run . gen:key
+   ```
 2. **Usage**:
    Include the key in your request headers:
-    ```http
-    X-App-Key: your_generated_key
-    ```
-    _Note: `/health` remains publicly accessible._
+   ```http
+   X-App-Key: your_generated_key
+   ```
+   _Note: `/health` remains publicly accessible._
 
 ### Database Operations
 
@@ -91,28 +91,33 @@ GoForge follows a modular architecture where each feature is encapsulated within
 
 ```
 internal/services/todo/
-  ├── handler.go  # HTTP request handlers (Gin)
-  ├── routes.go   # Route definitions & registration
+  ├── handler.go  # HTTP request handlers (Huma signature)
+  ├── docs.go     # Huma docs & route registration
   ├── model.go    # GORM models
-  ├── repo.go     # Repository layer (SQLC/GORM)
   ├── service.go  # Business logic layer
   └── proto.go    # gRPC definitions
 ```
 
-### Route Registration
+### Route Registration & Documentation
 
-When you create a new service, it's automatically registered in the application router. GoForge provides a clean, callback-based grouping DX:
+Services use **Huma** to define operations and generate OpenAPI documentation. Registration is handled in `docs.go`:
 
 ```go
-// routes.go
-func (r *TodoRouter) Register(engine gin.IRouter) {
+// docs.go
+func (d *TodoDocs) Register(engine *gin.Engine) {
+    config := huma.DefaultConfig("Todo API", "1.0.0")
+    config.DocsPath = "/api/docs/todo"
+
+    api := humagin.New(engine, config)
+
     h := &TodoHandler{}
 
-    // DX-friendly grouping helper
-    RegisterGroup(engine, "/todos", func(group *gin.RouterGroup) {
-        group.GET("/", h.GetAllTodos)
-        group.GET("/:id", h.GetTodoByID)
-    })
+    huma.Register(api, huma.Operation{
+        OperationID: "get-all-todo",
+        Method:      http.MethodGet,
+        Path:        "/api/todos",
+        Summary:     "List Todo",
+    }, h.GetAll)
 }
 ```
 

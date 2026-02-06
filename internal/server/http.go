@@ -14,7 +14,7 @@ import (
 
 // Router interface for service route registration
 type Router interface {
-	Register(engine gin.IRouter)
+	Register(engine *gin.Engine)
 }
 
 var (
@@ -70,14 +70,12 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 		})
 	})
 
-	// Authenticated routes
-	auth := engine.Group("/")
-	auth.Use(middleware.AppKey())
-	{
-		// Register all service routers to the authenticated group
-		for _, router := range routers {
-			router.Register(auth)
-		}
+	// Apply AppKey middleware globally for all subsequent routes
+	engine.Use(middleware.AppKey())
+
+	// Register all service routers
+	for _, router := range routers {
+		router.Register(engine)
 	}
 
 	// Create HTTP server

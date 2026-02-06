@@ -6,6 +6,7 @@ import "github.com/spf13/viper"
 type AppConfig struct {
 	Name    string
 	Version string
+	Module  string
 	Debug   bool
 	Key     string
 	Host    string
@@ -16,6 +17,7 @@ func loadAppConfig() error {
 	App = AppConfig{
 		Name:    viper.GetString("APP_NAME"),
 		Version: viper.GetString("APP_VERSION"),
+		Module:  viper.GetString("APP_MODULE"),
 		Debug:   viper.GetBool("APP_DEBUG"),
 		Key:     viper.GetString("APP_KEY"),
 		Host:    viper.GetString("APP_HOST"),
