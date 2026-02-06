@@ -83,8 +83,19 @@ func makeMigration(name string) {
 		os.Exit(1)
 	}
 
+	// Prepare environment for Atlas by propagating database config
+	atlasEnv := os.Environ()
+	atlasEnv = append(atlasEnv, "DB_CONNECTION="+config.DB.Connection)
+	atlasEnv = append(atlasEnv, "DB_NAME="+config.DB.Name)
+	atlasEnv = append(atlasEnv, "DB_USERNAME="+config.DB.Username)
+	atlasEnv = append(atlasEnv, "DB_PASSWORD="+config.DB.Password)
+	atlasEnv = append(atlasEnv, "DB_HOST="+config.DB.Host)
+	atlasEnv = append(atlasEnv, "DB_PORT="+fmt.Sprintf("%d", config.DB.Port))
+	atlasEnv = append(atlasEnv, "DB_DEV_NAME="+config.DB.DevName)
+
 	fmt.Println("→ Running atlas migrate hash...")
 	cmd := exec.Command("atlas", "migrate", "hash", "--env", "gorm")
+	cmd.Env = atlasEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -94,10 +105,17 @@ func makeMigration(name string) {
 
 	fmt.Println("→ Running atlas migrate diff...")
 	cmd = exec.Command("atlas", "migrate", "diff", "--env", "gorm", name)
+	cmd.Env = atlasEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error: Atlas migration failed: %v\n", err)
+		fmt.Printf("\nError: Atlas migration failed: %v\n", err)
+		if config.DB.DevName == "" && (config.DB.Connection == "mysql" || config.DB.Connection == "postgres") {
+			fmt.Println("\nTIP: Atlas requires a clean/empty database for the 'dev' environment.")
+			fmt.Printf("1. Create an empty database in your %s server (e.g., 'CREATE DATABASE %s_dev;')\n", config.DB.Connection, config.DB.Name)
+			fmt.Printf("2. Add 'DB_DEV_NAME=%s_dev' to your .env file\n", config.DB.Name)
+			fmt.Println("3. Run the command again.")
+		}
 		os.Exit(1)
 	}
 

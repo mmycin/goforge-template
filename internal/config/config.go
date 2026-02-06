@@ -73,6 +73,7 @@ func loadDBConfig() error {
 	DB = DBConfig{
 		Connection: viper.GetString("DB_CONNECTION"),
 		Name:       viper.GetString("DB_NAME"),
+		DevName:    viper.GetString("DB_DEV_NAME"),
 		Host:       viper.GetString("DB_HOST"),
 		Port:       viper.GetInt("DB_PORT"),
 		Username:   viper.GetString("DB_USERNAME"),
