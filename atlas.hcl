@@ -10,7 +10,9 @@ data "external_schema" "gorm" {
 env "gorm" {
   src = data.external_schema.gorm.url
 
-  dev = "sqlite://file?mode=memory&_fk=1"   # in-memory for diff planning; add &_fk=1 for foreign keys if you use them
+  // dev = "sqlite://file?mode=memory&_fk=1" # SQLITE
+  dev = "mysql://root:root@localhost:3306/test" # MYSQL
+  // dev = "postgres://postgres:password@localhost:5432/atlas_dev?sslmode=disable" # POSTGRES
 
   migration {
     dir = "file://internal/database/migrations"

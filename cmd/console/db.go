@@ -175,7 +175,11 @@ func Model() []any {
 
 func runLoader() {
 	models := database.Model()
-	loader := gormschema.New("sqlite")
+	driver := config.DB.Connection
+	if driver == "" {
+		driver = "sqlite"
+	}
+	loader := gormschema.New(driver)
 	stmts, err := loader.Load(models...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Failed to load GORM schema: %v\n", err)
