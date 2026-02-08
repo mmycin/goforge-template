@@ -2,7 +2,7 @@ data "external_schema" "gorm" {
   program = [
     "go",
     "run",
-    ".",
+    "./cmd/main.go",
     "loader",
   ]
 }

@@ -1,10 +1,8 @@
 package console
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -49,34 +47,7 @@ func removeService(name string) {
 }
 
 func removeFromKernel(name string) {
-	kernelPath := "internal/services/kernel.go"
-	importLine := fmt.Sprintf("\"github.com/mmycin/goforge/internal/services/%s\"", name)
-
-	content, err := os.ReadFile(kernelPath)
-	if err != nil {
-		Warning("Could not read %s: %v", kernelPath, err)
-		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	var newLines []string
-	removed := false
-
-	for _, line := range lines {
-		if strings.Contains(line, importLine) {
-			removed = true
-			continue
-		}
-		newLines = append(newLines, line)
-	}
-
-	if !removed {
-		Warning("Could not find registration in %s. Please check manually.", kernelPath)
-		return
-	}
-
-	err = os.WriteFile(kernelPath, []byte(strings.Join(newLines, "\n")), 0644)
-	if err != nil {
-		Warning("Could not write to %s: %v", kernelPath, err)
+	if err := registerModels(); err != nil {
+		Warning("Could not automatically update kernel.go: %v", err)
 	}
 }

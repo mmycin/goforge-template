@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/internal/database"
 	"github.com/mmycin/goforge/internal/server"
 	"github.com/mmycin/goforge/internal/services"
 	"github.com/rs/zerolog/log"
@@ -30,6 +31,12 @@ var serveCmd = &cobra.Command{
 
 		// Error group for managing multiple server goroutines
 		g, gCtx := errgroup.WithContext(ctx)
+
+		log.Info().Msg("→ Connecting to database...")
+		if err := database.Connect(); err != nil {
+			log.Error().Err(err).Msg("Database connection failed")
+			os.Exit(1)
+		}
 
 		// --- HTTP Server ---
 		routers := services.GetRouters()

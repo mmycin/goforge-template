@@ -11,12 +11,8 @@ import (
 	"ariga.io/atlas-provider-gorm/gormschema"
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/database"
+	"github.com/mmycin/goforge/internal/services"
 	"github.com/spf13/cobra"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/driver/sqlserver"
-	"gorm.io/gorm"
 )
 
 // migrateCmd represents the migrate command
@@ -64,6 +60,17 @@ var genSqlcCmd = &cobra.Command{
 	},
 }
 
+// remSqlcCmd represents the rem:sqlc command
+var remSqlcCmd = &cobra.Command{
+	Use:   "rem:sqlc",
+	Short: "Remove SQLC integration",
+	Long:  `Remove generated SQLC code and revert database kernel integration.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Removing SQLC integration...")
+		removeSqlc("internal/database/database.go")
+	},
+}
+
 func makeGen() {
 	fmt.Println("Executing sqlc generate...")
 	cmd := exec.Command("sqlc", "generate")
@@ -74,6 +81,121 @@ func makeGen() {
 		os.Exit(1)
 	}
 	fmt.Println("✓ Code generation completed successfully")
+
+	injectSqlc("internal/database/database.go")
+}
+
+func injectSqlc(targetPath string) {
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		fmt.Printf("Warning: Could not read %s for injection: %v\n", targetPath, err)
+		return
+	}
+
+	code := string(content)
+	if strings.Contains(code, "sqlc.New(sqlDB)") {
+		return // Already injected
+	}
+
+	fmt.Println("→ Injecting SQLC support into database...")
+
+	// 1. Inject Import
+	if !strings.Contains(code, "internal/database/gen") {
+		code = strings.Replace(code,
+			"\t\"github.com/mmycin/goforge/internal/config\"",
+			"\t\"github.com/mmycin/goforge/internal/config\"\n\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"", 1)
+	}
+
+	// 2. Inject Field
+	code = strings.Replace(code,
+		"// Sqlc field will be added when generated code is available",
+		"Sqlc *sqlc.Queries", 1)
+
+	// 3. Inject Initialization
+	oldInit := `	DB = &Database{
+		Gorm: gormDB,
+	}`
+	newInit := `	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB: %w", err)
+	}
+
+	DB = &Database{
+		Gorm: gormDB,
+		Sqlc: sqlc.New(sqlDB),
+	}`
+	code = strings.Replace(code, oldInit, newInit, 1)
+
+	if err := os.WriteFile(targetPath, []byte(code), 0644); err != nil {
+		fmt.Printf("Warning: Failed to inject SQLC support: %v\n", err)
+	}
+	fmt.Println("✓ SQLC support injected into database")
+}
+
+func removeSqlc(targetPath string) {
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		fmt.Printf("Warning: Could not read %s for removal: %v\n", targetPath, err)
+		return
+	}
+
+	code := string(content)
+
+	// Check if there's any SQLC integration to remove
+	hasSqlcImport := strings.Contains(code, "internal/database/gen")
+	hasSqlcField := strings.Contains(code, "Sqlc *sqlc.Queries")
+	hasSqlcInit := strings.Contains(code, "sqlc.New(sqlDB)")
+
+	if !hasSqlcImport && !hasSqlcField && !hasSqlcInit {
+		fmt.Println("No SQLC integration found to remove.")
+		return
+	}
+
+	fmt.Println("→ Removing SQLC support from database...")
+
+	// 1. Remove Import (handle multiple possible formats)
+	if hasSqlcImport {
+		// Try with newline and tab prefix
+		code = strings.Replace(code, "\n\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"", "", 1)
+		// Try with just tab prefix (in case it's the last import)
+		code = strings.Replace(code, "\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"\n", "", 1)
+		// Try standalone line
+		code = strings.Replace(code, "sqlc \"github.com/mmycin/goforge/internal/database/gen\"\n", "", 1)
+	}
+
+	// 2. Revert Field (if it exists)
+	if hasSqlcField {
+		code = strings.Replace(code,
+			"Sqlc *sqlc.Queries",
+			"// Sqlc field will be added when generated code is available", 1)
+	}
+
+	// 3. Revert Initialization (if it exists)
+	if hasSqlcInit {
+		oldInit := `	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB: %w", err)
+	}
+
+	DB = &Database{
+		Gorm: gormDB,
+		Sqlc: sqlc.New(sqlDB),
+	}`
+		newInit := `	DB = &Database{
+		Gorm: gormDB,
+	}`
+		code = strings.Replace(code, oldInit, newInit, 1)
+	}
+
+	if err := os.WriteFile(targetPath, []byte(code), 0644); err != nil {
+		fmt.Printf("Warning: Failed to remove SQLC support: %v\n", err)
+		return
+	}
+
+	// Optional: Remove generated files?
+	// os.RemoveAll("internal/database/gen")
+
+	fmt.Println("✓ SQLC support removed from database")
 }
 
 func makeMigration(name string) {
@@ -152,14 +274,21 @@ func registerModels() error {
 		}
 	}
 
-	tmpl := `package database
+	tmpl := `package services
 
 import (
+	"github.com/mmycin/goforge/internal/server"
 {{- range . }}
 	"github.com/mmycin/goforge/internal/services/{{ . }}"
 {{- end }}
 )
 
+// GetRouters returns all service routers to be registered
+func GetRouters() []server.Router {
+	return server.GetRegisteredRouters()
+}
+
+// Model returns all models to be registered with GORM
 func Model() []any {
 	return []any{
 {{- range . }}
@@ -182,7 +311,7 @@ func Model() []any {
 		return err
 	}
 
-	f, err := os.Create("internal/database/kernel.go")
+	f, err := os.Create("internal/services/kernel.go")
 	if err != nil {
 		return err
 	}
@@ -192,7 +321,7 @@ func Model() []any {
 }
 
 func runLoader() {
-	models := database.Model()
+	models := services.Model()
 	driver := config.DB.Connection
 	if driver == "" {
 		driver = "sqlite"
@@ -207,61 +336,15 @@ func runLoader() {
 }
 
 func migrateDB() {
-	dbName := config.DB.Name
-	dbDriver := config.DB.Connection
-	dbDsn := ""
-
-	if dbDriver == "" {
-		if strings.HasSuffix(dbName, ".db") {
-			dbDriver = "sqlite"
-			dbDsn = dbName
-		} else {
-			dbDriver = "sqlite"
-		}
-	}
-
-	if dbDsn == "" {
-		switch dbDriver {
-		case "mysql":
-			dbDsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
-		case "postgres":
-			dbDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
-				config.DB.Host, config.DB.Username, config.DB.Password, config.DB.Name, config.DB.Port)
-		case "sqlite":
-			dbDsn = dbName
-		case "sqlserver":
-			dbDsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
-		}
-	}
-
-	fmt.Printf("→ Connecting to database: %s\n", dbDriver)
-
-	var dialector gorm.Dialector
-	switch dbDriver {
-	case "mysql":
-		dialector = mysql.Open(dbDsn)
-	case "postgres":
-		dialector = postgres.Open(dbDsn)
-	case "sqlite":
-		dialector = sqlite.Open(dbDsn)
-	case "sqlserver":
-		dialector = sqlserver.Open(dbDsn)
-	default:
-		fmt.Printf("Error: Unsupported database driver: %s\n", dbDriver)
-		os.Exit(1)
-	}
-
-	db, err := gorm.Open(dialector, &gorm.Config{})
-	if err != nil {
-		fmt.Printf("Error: Failed to connect to database: %v\n", err)
+	fmt.Println("→ Connecting to database...")
+	if err := database.Connect(); err != nil {
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("→ Running GORM AutoMigrate...")
-	models := database.Model()
-	if err := db.AutoMigrate(models...); err != nil {
+	models := services.Model()
+	if err := database.DB.Gorm.AutoMigrate(models...); err != nil {
 		fmt.Printf("Error: AutoMigrate failed: %v\n", err)
 		os.Exit(1)
 	}

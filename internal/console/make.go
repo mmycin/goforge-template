@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/spf13/cobra"
@@ -174,40 +173,9 @@ message DeleteResponse {}
 		}
 	}
 
-	updateKernel(name, moduleName)
-
-	Success("Service '%s' created successfully with proto template and auto-registered", name)
-}
-
-func updateKernel(name, moduleName string) {
-	kernelPath := "internal/services/kernel.go"
-	importLine := fmt.Sprintf("\t_ \"%s/internal/services/%s\"", moduleName, name)
-
-	content, err := os.ReadFile(kernelPath)
-	if err != nil {
-		Warning("Could not read %s: %v", kernelPath, err)
-		return
+	if err := registerModels(); err != nil {
+		Warning("Could not automatically update kernel.go: %v", err)
 	}
 
-	lines := strings.Split(string(content), "\n")
-	var newLines []string
-	added := false
-
-	for _, line := range lines {
-		if !added && strings.Contains(line, ")") && strings.HasPrefix(strings.TrimSpace(line), ")") {
-			newLines = append(newLines, importLine)
-			added = true
-		}
-		newLines = append(newLines, line)
-	}
-
-	if !added {
-		Warning("Could not automatically update %s. Please add %s manually.", kernelPath, importLine)
-		return
-	}
-
-	err = os.WriteFile(kernelPath, []byte(strings.Join(newLines, "\n")), 0644)
-	if err != nil {
-		Warning("Could not write to %s: %v", kernelPath, err)
-	}
+	Success("Service '%s' created successfully and auto-registered in kernel.go", name)
 }
