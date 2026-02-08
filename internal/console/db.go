@@ -102,8 +102,8 @@ func injectSqlc(targetPath string) {
 	// 1. Inject Import
 	if !strings.Contains(code, "internal/database/gen") {
 		code = strings.Replace(code,
-			"\t\"github.com/mmycin/goforge/internal/config\"",
-			"\t\"github.com/mmycin/goforge/internal/config\"\n\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"", 1)
+			fmt.Sprintf("\t\"%s/internal/config\"", config.App.Module),
+			fmt.Sprintf("\t\"%s/internal/config\"\n\tsqlc \"%s/internal/database/gen\"", config.App.Module, config.App.Module), 1)
 	}
 
 	// 2. Inject Field
@@ -156,11 +156,11 @@ func removeSqlc(targetPath string) {
 	// 1. Remove Import (handle multiple possible formats)
 	if hasSqlcImport {
 		// Try with newline and tab prefix
-		code = strings.Replace(code, "\n\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"", "", 1)
+		code = strings.Replace(code, fmt.Sprintf("\n\tsqlc \"%s/internal/database/gen\"", config.App.Module), "", 1)
 		// Try with just tab prefix (in case it's the last import)
-		code = strings.Replace(code, "\tsqlc \"github.com/mmycin/goforge/internal/database/gen\"\n", "", 1)
+		code = strings.Replace(code, fmt.Sprintf("\tsqlc \"%s/internal/database/gen\"\n", config.App.Module), "", 1)
 		// Try standalone line
-		code = strings.Replace(code, "sqlc \"github.com/mmycin/goforge/internal/database/gen\"\n", "", 1)
+		code = strings.Replace(code, fmt.Sprintf("sqlc \"%s/internal/database/gen\"\n", config.App.Module), "", 1)
 	}
 
 	// 2. Revert Field (if it exists)
@@ -277,9 +277,9 @@ func registerModels() error {
 	tmpl := `package services
 
 import (
-	"github.com/mmycin/goforge/internal/server"
-{{- range . }}
-	"github.com/mmycin/goforge/internal/services/{{ . }}"
+	"{{ .Module }}/internal/server"
+{{- range .Services }}
+	"{{ $.Module }}/internal/services/{{ . }}"
 {{- end }}
 )
 
@@ -291,7 +291,7 @@ func GetRouters() []server.Router {
 // Model returns all models to be registered with GORM
 func Model() []any {
 	return []any{
-{{- range . }}
+{{- range .Services }}
 		&{{ . }}.{{ title . }}{},
 {{- end }}
 	}
@@ -317,7 +317,15 @@ func Model() []any {
 	}
 	defer f.Close()
 
-	return t.Execute(f, services)
+	data := struct {
+		Module   string
+		Services []string
+	}{
+		Module:   config.App.Module,
+		Services: services,
+	}
+
+	return t.Execute(f, data)
 }
 
 func runLoader() {

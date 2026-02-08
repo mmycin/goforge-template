@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/mmycin/goforge/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -68,9 +69,14 @@ func generateProto(serviceName string) error {
 		return nil
 	}
 
-	moduleName, err := getModuleName()
-	if err != nil {
-		Warning("Could not determine module name: %v. Generated paths might be incorrect.", err)
+	moduleName := config.App.Module
+	if moduleName == "" {
+		mn, err := getModuleName()
+		if err != nil {
+			Warning("Could not determine module name: %v. Generated paths might be incorrect.", err)
+		} else {
+			moduleName = mn
+		}
 	}
 
 	for _, p := range protoFiles {
@@ -143,11 +149,13 @@ func generateGrpcScaffold(servicesDir, serviceName string) error {
 		Package   string
 		Title     string
 		Methods   []string
+		Module    string
 		Timestamp string
 	}{
 		Package:   serviceName,
 		Title:     camelName,
 		Methods:   methods,
+		Module:    config.App.Module,
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
@@ -157,8 +165,8 @@ package {{.Package}}
 import (
 	"context"
 
-	"github.com/mmycin/goforge/internal/server"
-	pb "github.com/mmycin/goforge/proto/{{.Package}}/gen"
+	"{{.Module}}/internal/server"
+	pb "{{.Module}}/proto/{{.Package}}/gen"
 	"google.golang.org/grpc"
 )
 
