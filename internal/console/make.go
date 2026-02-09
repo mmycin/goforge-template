@@ -95,6 +95,10 @@ func (r *%sRoutes) Register(engine *gin.Engine) {
 		"docs.go": fmt.Sprintf(`package %s
 
 import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
 	"github.com/gin-gonic/gin"
 	"%s/internal/server"
@@ -110,14 +114,23 @@ func (d *%sDocs) Register(engine *gin.Engine) {
 	config := server.NewHumaConfig("%s API", "1.0.0", "/api/docs/%s")
 	
 	// Create API instance
-	humagin.New(engine, config)
+	api := humagin.New(engine, config)
 	
-	// Register Huma operations here if you want to generate OpenAPI spec
-	// usage: huma.Register(api, operation, handler)
+	// Register health check
+	huma.Register(api, huma.Operation{
+		OperationID: "get-health",
+		Method:      http.MethodGet,
+		Path:        "/api/%s/health",
+		Summary:     "Health check",
+		Description: "Check if the service is healthy",
+		Tags:        []string{"Health"},
+	}, func(ctx context.Context, input *struct{}) (*struct{ Body string }, error) {
+		return &struct{ Body string }{Body: "OK"}, nil
+	})
 }
-`, name, moduleName, camelName, camelName, camelName, name, name),
+`, name, moduleName, camelName, camelName, camelName, name, name, name),
 		"service.go": "package " + name + "\n",
-		"model.go":   fmt.Sprintf("package %s\n\nimport \"time\"\n\ntype %s struct {\n\tID        uint      `gorm:\"primaryKey;autoIncrement\"`\n\tCreatedAt time.Time `gorm:\"autoCreateTime\"`\n\tUpdatedAt time.Time `gorm:\"autoUpdateTime\"`\n}\n", name, camelName),
+		"model.go":   fmt.Sprintf("package %s\n\nimport \"time\"\n\ntype %s struct {\n\tID        uint      `gorm:\"primaryKey;autoIncrement\" json:\"id\"`\n\tCreatedAt time.Time `gorm:\"autoCreateTime\" json:\"created_at\"`\n\tUpdatedAt time.Time `gorm:\"autoUpdateTime\" json:\"updated_at\"`\n}\n", name, camelName),
 	}
 
 	for fname, content := range files {

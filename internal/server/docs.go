@@ -8,6 +8,8 @@ import (
 func NewHumaConfig(title, version, docsPath string) huma.Config {
 	config := huma.DefaultConfig(title, version)
 	config.DocsPath = docsPath
+	config.OpenAPIPath = docsPath + ".json"
+	config.SchemasPath = docsPath + "/schemas"
 
 	// Define the App Key security scheme
 	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
