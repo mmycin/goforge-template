@@ -1,5 +1,7 @@
 -- name: CreateTodo :exec
-INSERT INTO todos (title, completed) VALUES (?, ?);
+INSERT INTO
+    todos (title, description, completed)
+VALUES (?, ?, ?);
 
 -- name: GetTodo :one
 SELECT * FROM todos WHERE id = ?;
@@ -8,7 +10,13 @@ SELECT * FROM todos WHERE id = ?;
 SELECT * FROM todos;
 
 -- name: UpdateTodo :exec
-UPDATE todos SET title = ?, completed = ? WHERE id = ?;
+UPDATE todos
+SET
+    title = ?,
+    description = ?,
+    completed = ?
+WHERE
+    id = ?;
 
 -- name: DeleteTodo :exec
 DELETE FROM todos WHERE id = ?;

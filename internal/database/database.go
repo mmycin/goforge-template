@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/internal/config"
+	sqlc "github.com/mmycin/goforge/internal/database/gen"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -16,7 +18,7 @@ var DB *Database
 
 type Database struct {
 	Gorm *gorm.DB
-	// Sqlc field will be added when generated code is available
+	Sqlc *sqlc.Queries
 }
 
 func Connect() error {
@@ -65,11 +67,17 @@ func Connect() error {
 
 	gormDB, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
+		return err
+	}
+
+	sqlDB, err := gormDB.DB()
+	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	DB = &Database{
 		Gorm: gormDB,
+		Sqlc: sqlc.New(sqlDB),
 	}
 
 	return nil

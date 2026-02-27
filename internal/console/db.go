@@ -72,6 +72,24 @@ var remSqlcCmd = &cobra.Command{
 }
 
 func makeGen() {
+	if err := updateSqlcConfig(); err != nil {
+		fmt.Printf("Warning: Failed to update sqlc.yaml: %v\n", err)
+	}
+
+	engine := config.DB.Connection
+	if engine == "postgres" || engine == "postgresql" {
+		engine = "postgresql"
+	} else if engine == "mysql" {
+		engine = "mysql"
+	} else {
+		engine = "sqlite"
+	}
+
+	fmt.Printf("→ Transforming queries for %s engine...\n", engine)
+	if err := transformQueries(engine); err != nil {
+		fmt.Printf("Warning: Failed to transform queries: %v\n", err)
+	}
+
 	fmt.Println("Executing sqlc generate...")
 	cmd := exec.Command("sqlc", "generate")
 	cmd.Stdout = os.Stdout
@@ -83,6 +101,89 @@ func makeGen() {
 	fmt.Println("✓ Code generation completed successfully")
 
 	injectSqlc("internal/database/database.go")
+}
+
+func transformQueries(engine string) error {
+	queriesDir := "internal/database/queries"
+	files, err := filepath.Glob(filepath.Join(queriesDir, "*.sql"))
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		content, err := os.ReadFile(f)
+		if err != nil {
+			return err
+		}
+
+		newContent := string(content)
+		if engine == "postgresql" {
+			// Convert ? to $1, $2, etc. (per query basis)
+			lines := strings.Split(newContent, "\n")
+			placeholderIdx := 1
+			for i, line := range lines {
+				if strings.Contains(line, "-- name:") {
+					placeholderIdx = 1
+				}
+				for strings.Contains(lines[i], "?") {
+					lines[i] = strings.Replace(lines[i], "?", fmt.Sprintf("$%d", placeholderIdx), 1)
+					placeholderIdx++
+				}
+			}
+			newContent = strings.Join(lines, "\n")
+		} else if engine == "mysql" || engine == "sqlite" {
+			// Convert $n to ?
+			for i := 1; i < 50; i++ {
+				newContent = strings.ReplaceAll(newContent, fmt.Sprintf("$%d", i), "?")
+			}
+		}
+
+		if err := os.WriteFile(f, []byte(newContent), 0644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateSqlcConfig() error {
+	configPath := "sqlc.yaml"
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	engine := config.DB.Connection
+	if engine == "postgres" {
+		engine = "postgresql"
+	}
+	if engine == "" {
+		engine = "sqlite"
+	}
+
+	lines := strings.Split(string(content), "\n")
+	updated := false
+	for i, line := range lines {
+		if strings.Contains(line, "engine:") {
+			// Preserving indentation and comments
+			parts := strings.SplitN(line, "engine:", 2)
+			if len(parts) == 2 {
+				indent := parts[0]
+				suffix := ""
+				if idx := strings.Index(parts[1], "#"); idx != -1 {
+					suffix = " " + parts[1][idx:]
+				}
+				lines[i] = fmt.Sprintf("%sengine: %q%s", indent, engine, suffix)
+				updated = true
+				break
+			}
+		}
+	}
+
+	if !updated {
+		return fmt.Errorf("could not find 'engine' field in %s", configPath)
+	}
+
+	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 func injectSqlc(targetPath string) {
@@ -107,15 +208,25 @@ func injectSqlc(targetPath string) {
 	}
 
 	// 2. Inject Field
-	code = strings.Replace(code,
-		"// Sqlc field will be added when generated code is available",
-		"Sqlc *sqlc.Queries", 1)
+	if !strings.Contains(code, "Sqlc *sqlc.Queries") {
+		code = strings.Replace(code,
+			"// Sqlc field will be added when generated code is available",
+			"Sqlc *sqlc.Queries", 1)
+	}
 
 	// 3. Inject Initialization
-	oldInit := `	DB = &Database{
-		Gorm: gormDB,
-	}`
-	newInit := `	sqlDB, err := gormDB.DB()
+	if !strings.Contains(code, "sqlc.New(sqlDB)") {
+		oldInit := "DB = &Database{\n\t\tGorm: gormDB,\n\t}"
+		// Try to find it more flexibly if the above exact match fails
+		if !strings.Contains(code, oldInit) {
+			// fallback to just the struct assignment if exact whitespace fails
+			code = strings.Replace(code, "Gorm: gormDB,", "Gorm: gormDB,\n\t\tSqlc: sqlc.New(sqlDB),", 1)
+			if !strings.Contains(code, "sqlDB, err := gormDB.DB()") {
+				code = strings.Replace(code, "gormDB, err := gorm.Open(dialector, &gorm.Config{})",
+					"gormDB, err := gorm.Open(dialector, &gorm.Config{})\n\tif err != nil {\n\t\treturn err\n\t}\n\n\tsqlDB, err := gormDB.DB()", 1)
+			}
+		} else {
+			newInit := `	sqlDB, err := gormDB.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get sql.DB: %w", err)
 	}
@@ -124,7 +235,9 @@ func injectSqlc(targetPath string) {
 		Gorm: gormDB,
 		Sqlc: sqlc.New(sqlDB),
 	}`
-	code = strings.Replace(code, oldInit, newInit, 1)
+			code = strings.Replace(code, oldInit, newInit, 1)
+		}
+	}
 
 	if err := os.WriteFile(targetPath, []byte(code), 0644); err != nil {
 		fmt.Printf("Warning: Failed to inject SQLC support: %v\n", err)
@@ -239,7 +352,24 @@ func makeMigration(name string) {
 			fmt.Printf("Warning: Failed to read %s: %v\n", f, err)
 			continue
 		}
-		newContent := strings.ReplaceAll(string(content), "`", "")
+		newContent := string(content)
+		newContent = strings.ReplaceAll(newContent, "`", "")
+
+		// Clean up MySQL specific items that break SQLC (even in MySQL mode sometimes)
+		// Remove COLLATE ...
+		lines := strings.Split(newContent, "\n")
+		for i, line := range lines {
+			if idx := strings.Index(line, "COLLATE"); idx != -1 {
+				lines[i] = strings.TrimSpace(line[:idx])
+				if strings.HasSuffix(lines[i], ";") {
+					// Keep the semicolon
+				} else {
+					lines[i] += ";"
+				}
+			}
+		}
+		newContent = strings.Join(lines, "\n")
+
 		if err := os.WriteFile(f, []byte(newContent), 0644); err != nil {
 			fmt.Printf("Warning: Failed to write %s: %v\n", f, err)
 		}
