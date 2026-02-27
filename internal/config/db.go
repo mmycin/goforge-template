@@ -11,6 +11,7 @@ type DBConfig struct {
 	Port       int
 	Username   string
 	Password   string
+	Migrator   string
 }
 
 func loadDBConfig() error {
@@ -22,6 +23,7 @@ func loadDBConfig() error {
 		Port:       viper.GetInt("DB_PORT"),
 		Username:   viper.GetString("DB_USERNAME"),
 		Password:   viper.GetString("DB_PASSWORD"),
+		Migrator:   viper.GetString("DB_MIGRATOR"),
 	}
 	return nil
 }

@@ -215,18 +215,8 @@ func makeMigration(name string) {
 	atlasEnv = append(atlasEnv, "DB_PORT="+fmt.Sprintf("%d", config.DB.Port))
 	atlasEnv = append(atlasEnv, "DB_DEV_NAME="+config.DB.DevName)
 
-	fmt.Println("→ Running atlas migrate hash...")
-	cmd := exec.Command("atlas", "migrate", "hash", "--env", "gorm")
-	cmd.Env = atlasEnv
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error: Atlas hash failed: %v\n", err)
-		os.Exit(1)
-	}
-
 	fmt.Println("→ Running atlas migrate diff...")
-	cmd = exec.Command("atlas", "migrate", "diff", "--env", "gorm", name)
+	cmd := exec.Command("atlas", "migrate", "diff", "--env", "gorm", name)
 	cmd.Env = atlasEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -254,6 +244,17 @@ func makeMigration(name string) {
 			fmt.Printf("Warning: Failed to write %s: %v\n", f, err)
 		}
 	}
+
+	fmt.Println("→ Running atlas migrate hash...")
+	cmd = exec.Command("atlas", "migrate", "hash", "--env", "gorm")
+	cmd.Env = atlasEnv
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error: Atlas hash failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("✓ Migration created successfully")
 }
 
@@ -350,11 +351,39 @@ func migrateDB() {
 		os.Exit(1)
 	}
 
-	fmt.Println("→ Running GORM AutoMigrate...")
-	models := services.Model()
-	if err := database.DB.Gorm.AutoMigrate(models...); err != nil {
-		fmt.Printf("Error: AutoMigrate failed: %v\n", err)
+	migrator := strings.ToLower(config.DB.Migrator)
+	if migrator == "atlas" {
+		fmt.Println("→ Running Atlas migrate apply...")
+		runAtlasMigrate()
+	} else {
+		fmt.Println("→ Running GORM AutoMigrate...")
+		models := services.Model()
+		if err := database.DB.Gorm.AutoMigrate(models...); err != nil {
+			fmt.Printf("Error: AutoMigrate failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✓ Database migration completed successfully")
+	}
+}
+
+func runAtlasMigrate() {
+	// Prepare environment for Atlas by propagating database config
+	atlasEnv := os.Environ()
+	atlasEnv = append(atlasEnv, "DB_CONNECTION="+config.DB.Connection)
+	atlasEnv = append(atlasEnv, "DB_NAME="+config.DB.Name)
+	atlasEnv = append(atlasEnv, "DB_USERNAME="+config.DB.Username)
+	atlasEnv = append(atlasEnv, "DB_PASSWORD="+config.DB.Password)
+	atlasEnv = append(atlasEnv, "DB_HOST="+config.DB.Host)
+	atlasEnv = append(atlasEnv, "DB_PORT="+fmt.Sprintf("%d", config.DB.Port))
+	atlasEnv = append(atlasEnv, "DB_DEV_NAME="+config.DB.DevName)
+
+	cmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm")
+	cmd.Env = atlasEnv
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error: Atlas migrate apply failed: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("✓ Database migration completed successfully")
+	fmt.Println("✓ Atlas migration completed successfully")
 }
