@@ -30,6 +30,47 @@ var genProtoCmd = &cobra.Command{
 	},
 }
 
+var remProtoCmd = &cobra.Command{
+	Use:   "rem:proto",
+	Short: "Remove generated gRPC code",
+	Long:  `Permanently remove generated .pb.go and _grpc.pb.go files.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		Info("Removing generated proto files...")
+		if err := removeProto(); err != nil {
+			Error("%v", err)
+			os.Exit(1)
+		}
+	},
+}
+
+func removeProto() error {
+	servicesDir := "internal/services"
+	entries, err := os.ReadDir(servicesDir)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			// Remove any .pb.go files in the service directory
+			files, _ := filepath.Glob(filepath.Join(servicesDir, e.Name(), "*.pb.go"))
+			for _, f := range files {
+				Info("  Removing %s", f)
+				os.Remove(f)
+			}
+			// Also look in gen/ if it exists
+			genDir := filepath.Join("proto", e.Name(), "gen")
+			if _, err := os.Stat(genDir); err == nil {
+				Info("  Removing %s", genDir)
+				os.RemoveAll(genDir)
+			}
+		}
+	}
+
+	Success("Generated proto files removed.")
+	return nil
+}
+
 func generateProto(serviceName string) error {
 	protoDir := "proto"
 	servicesDir := "internal/services"
@@ -130,7 +171,7 @@ func updateModelGo(svcName, moduleName string) error {
 	}
 
 	src := string(content)
-	if strings.Contains(src, "func (t *") && strings.Contains(src, ") ToProto()") {
+	if strings.Contains(src, ") ToProto()") || strings.Contains(src, ") ToModel()") {
 		return nil
 	}
 

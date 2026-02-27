@@ -33,6 +33,20 @@ var genKeyCmd = &cobra.Command{
 	},
 }
 
+var remKeyCmd = &cobra.Command{
+	Use:   "rem:key",
+	Short: "Remove the APP_KEY from .env",
+	Long:  `Clear the APP_KEY value in your .env file.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Removing APP_KEY from .env...")
+		if err := updateEnvKey("APP_KEY", ""); err != nil {
+			fmt.Printf("Error clearing APP_KEY: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✓ APP_KEY cleared from .env")
+	},
+}
+
 func updateEnvKey(key, value string) error {
 	content, err := os.ReadFile(".env")
 	if err != nil {

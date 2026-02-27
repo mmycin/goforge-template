@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"ariga.io/atlas-provider-gorm/gormschema"
 	"github.com/mmycin/goforge/internal/config"
@@ -35,7 +36,18 @@ var genMigrationCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		fmt.Printf("Creating migration: %s\n", name)
-		makeMigration(name)
+		genMigration(name)
+	},
+}
+
+// remMigrationCmd represents the rem:migration command
+var remMigrationCmd = &cobra.Command{
+	Use:   "rem:migration",
+	Short: "Remove the latest database migration",
+	Long:  `Delete the most recent migration file and revert the atlas hash.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Removing latest migration...")
+		remMigration()
 	},
 }
 
@@ -56,7 +68,7 @@ var genSqlcCmd = &cobra.Command{
 	Long:  `Execute sqlc generate to create database query code.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running code generation...")
-		makeGen()
+		genSqlc()
 	},
 }
 
@@ -71,7 +83,7 @@ var remSqlcCmd = &cobra.Command{
 	},
 }
 
-func makeGen() {
+func genSqlc() {
 	if err := updateSqlcConfig(); err != nil {
 		fmt.Printf("Warning: Failed to update sqlc.yaml: %v\n", err)
 	}
@@ -200,45 +212,62 @@ func injectSqlc(targetPath string) {
 
 	fmt.Println("→ Injecting SQLC support into database...")
 
-	// 1. Inject Import
-	if !strings.Contains(code, "internal/database/gen") {
-		code = strings.Replace(code,
-			fmt.Sprintf("\t\"%s/internal/config\"", config.App.Module),
-			fmt.Sprintf("\t\"%s/internal/config\"\n\tsqlc \"%s/internal/database/gen\"", config.App.Module, config.App.Module), 1)
-	}
+	lines := strings.Split(code, "\n")
+	var newLines []string
 
-	// 2. Inject Field
-	if !strings.Contains(code, "Sqlc *sqlc.Queries") {
-		code = strings.Replace(code,
-			"// Sqlc field will be added when generated code is available",
-			"Sqlc *sqlc.Queries", 1)
-	}
+	importAdded := false
+	fieldAdded := false
+	sqlDBAdded := false
+	literalUpdated := false
 
-	// 3. Inject Initialization
-	if !strings.Contains(code, "sqlc.New(sqlDB)") {
-		oldInit := "DB = &Database{\n\t\tGorm: gormDB,\n\t}"
-		// Try to find it more flexibly if the above exact match fails
-		if !strings.Contains(code, oldInit) {
-			// fallback to just the struct assignment if exact whitespace fails
-			code = strings.Replace(code, "Gorm: gormDB,", "Gorm: gormDB,\n\t\tSqlc: sqlc.New(sqlDB),", 1)
-			if !strings.Contains(code, "sqlDB, err := gormDB.DB()") {
-				code = strings.Replace(code, "gormDB, err := gorm.Open(dialector, &gorm.Config{})",
-					"gormDB, err := gorm.Open(dialector, &gorm.Config{})\n\tif err != nil {\n\t\treturn err\n\t}\n\n\tsqlDB, err := gormDB.DB()", 1)
-			}
-		} else {
-			newInit := `	sqlDB, err := gormDB.DB()
-	if err != nil {
-		return fmt.Errorf("failed to get sql.DB: %w", err)
-	}
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
 
-	DB = &Database{
-		Gorm: gormDB,
-		Sqlc: sqlc.New(sqlDB),
-	}`
-			code = strings.Replace(code, oldInit, newInit, 1)
+		// 1. Inject Import
+		if !importAdded && strings.Contains(line, "internal/config") {
+			newLines = append(newLines, line)
+			newLines = append(newLines, fmt.Sprintf("\tsqlc \"%s/internal/database/gen\"", config.App.Module))
+			importAdded = true
+			continue
 		}
+
+		// 2. Inject Field
+		if !fieldAdded && trimmed == "Gorm *gorm.DB" {
+			newLines = append(newLines, line)
+			newLines = append(newLines, "\tSqlc *sqlc.Queries")
+			fieldAdded = true
+			continue
+		}
+
+		// 3. Inject sqlDB
+		if !sqlDBAdded && trimmed == "if err != nil {" && i > 0 && strings.Contains(lines[i-1], "gorm.Open") {
+			newLines = append(newLines, line)
+			newLines = append(newLines, lines[i+1]) // return err
+			newLines = append(newLines, lines[i+2]) // }
+			i += 2
+
+			newLines = append(newLines, "")
+			newLines = append(newLines, "\tsqlDB, err := gormDB.DB()")
+			newLines = append(newLines, "\tif err != nil {")
+			newLines = append(newLines, "\t\treturn err")
+			newLines = append(newLines, "\t}")
+			sqlDBAdded = true
+			continue
+		}
+
+		// 4. Update Struct Literal
+		if !literalUpdated && trimmed == "Gorm: gormDB," {
+			newLines = append(newLines, line)
+			newLines = append(newLines, "\t\tSqlc: sqlc.New(sqlDB),")
+			literalUpdated = true
+			continue
+		}
+
+		newLines = append(newLines, line)
 	}
 
+	code = strings.Join(newLines, "\n")
 	if err := os.WriteFile(targetPath, []byte(code), 0644); err != nil {
 		fmt.Printf("Warning: Failed to inject SQLC support: %v\n", err)
 	}
@@ -253,65 +282,90 @@ func removeSqlc(targetPath string) {
 	}
 
 	code := string(content)
-
-	// Check if there's any SQLC integration to remove
-	hasSqlcImport := strings.Contains(code, "internal/database/gen")
-	hasSqlcField := strings.Contains(code, "Sqlc *sqlc.Queries")
-	hasSqlcInit := strings.Contains(code, "sqlc.New(sqlDB)")
-
-	if !hasSqlcImport && !hasSqlcField && !hasSqlcInit {
-		fmt.Println("No SQLC integration found to remove.")
-		return
-	}
+	lines := strings.Split(code, "\n")
+	var newLines []string
 
 	fmt.Println("→ Removing SQLC support from database...")
 
-	// 1. Remove Import (handle multiple possible formats)
-	if hasSqlcImport {
-		// Try with newline and tab prefix
-		code = strings.Replace(code, fmt.Sprintf("\n\tsqlc \"%s/internal/database/gen\"", config.App.Module), "", 1)
-		// Try with just tab prefix (in case it's the last import)
-		code = strings.Replace(code, fmt.Sprintf("\tsqlc \"%s/internal/database/gen\"\n", config.App.Module), "", 1)
-		// Try standalone line
-		code = strings.Replace(code, fmt.Sprintf("sqlc \"%s/internal/database/gen\"\n", config.App.Module), "", 1)
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+
+		// 1. Skip Import
+		if strings.Contains(line, "internal/database/gen") {
+			continue
+		}
+
+		// 2. Skip Field (revert to placeholder)
+		if trimmed == "Sqlc *sqlc.Queries" {
+			newLines = append(newLines, "\t// Sqlc field will be added when generated code is available")
+			continue
+		}
+
+		// 3. Skip sqlDB initialization block
+		if trimmed == "sqlDB, err := gormDB.DB()" {
+			// Skip next 3 lines (the if block)
+			i += 3
+			// If next line is empty, skip it too
+			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
+				i++
+			}
+			continue
+		}
+
+		// 4. Skip literal entry
+		if strings.Contains(line, "Sqlc: sqlc.New(sqlDB),") {
+			continue
+		}
+
+		newLines = append(newLines, line)
 	}
 
-	// 2. Revert Field (if it exists)
-	if hasSqlcField {
-		code = strings.Replace(code,
-			"Sqlc *sqlc.Queries",
-			"// Sqlc field will be added when generated code is available", 1)
-	}
-
-	// 3. Revert Initialization (if it exists)
-	if hasSqlcInit {
-		oldInit := `	sqlDB, err := gormDB.DB()
-	if err != nil {
-		return fmt.Errorf("failed to get sql.DB: %w", err)
-	}
-
-	DB = &Database{
-		Gorm: gormDB,
-		Sqlc: sqlc.New(sqlDB),
-	}`
-		newInit := `	DB = &Database{
-		Gorm: gormDB,
-	}`
-		code = strings.Replace(code, oldInit, newInit, 1)
-	}
-
+	code = strings.Join(newLines, "\n")
 	if err := os.WriteFile(targetPath, []byte(code), 0644); err != nil {
 		fmt.Printf("Warning: Failed to remove SQLC support: %v\n", err)
-		return
 	}
 
-	// Optional: Remove generated files?
-	// os.RemoveAll("internal/database/gen")
+	// Remove generated files
+	genDir := "internal/database/gen"
+	if _, err := os.Stat(genDir); err == nil {
+		fmt.Printf("→ Deleting generated folder: %s\n", genDir)
+		os.RemoveAll(genDir)
+	}
 
 	fmt.Println("✓ SQLC support removed from database")
 }
 
-func makeMigration(name string) {
+func remMigration() {
+	migrationDir := "internal/database/migrations"
+	files, err := filepath.Glob(filepath.Join(migrationDir, "*.sql"))
+	if err != nil || len(files) == 0 {
+		fmt.Println("No migration files found to remove.")
+		return
+	}
+
+	// Find the latest migration file (based on filename prefix, usually timestamp)
+	latest := files[len(files)-1]
+	fmt.Printf("→ Deleting migration file: %s\n", latest)
+	if err := os.Remove(latest); err != nil {
+		fmt.Printf("Error: Failed to delete migration file: %v\n", err)
+		return
+	}
+
+	// Also remove the corresponding hash if it exists (atlas-specific)
+	fmt.Println("→ Updating atlas migrate hash...")
+	atlasEnv := os.Environ()
+	atlasEnv = append(atlasEnv, "DB_CONNECTION="+config.DB.Connection)
+	cmd := exec.Command("atlas", "migrate", "hash", "--env", "gorm")
+	cmd.Env = atlasEnv
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Warning: Atlas hash update failed: %v\n", err)
+	}
+
+	fmt.Println("✓ Latest migration removed successfully")
+}
+
+func genMigration(name string) {
 	fmt.Println("→ Registering models...")
 	if err := registerModels(); err != nil {
 		fmt.Printf("Error: Failed to register models: %v\n", err)
@@ -430,10 +484,15 @@ func Model() []any {
 `
 	funcMap := template.FuncMap{
 		"title": func(s string) string {
-			if len(s) == 0 {
-				return ""
+			parts := strings.Split(s, "_")
+			for i, part := range parts {
+				if len(part) > 0 {
+					r := []rune(part)
+					r[0] = unicode.ToUpper(r[0])
+					parts[i] = string(r)
+				}
 			}
-			return strings.ToUpper(s[:1]) + s[1:]
+			return strings.Join(parts, "")
 		},
 	}
 

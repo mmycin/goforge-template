@@ -10,18 +10,18 @@ import (
 )
 
 var makeServiceCmd = &cobra.Command{
-	Use:   "make:service [name]",
+	Use:   "gen:service [name]",
 	Short: "Create a new service",
 	Long:  `Generate a new service with handler, repository, model, routes, and proto files.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		Info("Creating service: %s", name)
-		makeService(name)
+		genService(name)
 	},
 }
 
-func makeService(name string) {
+func genService(name string) {
 	targetDir := filepath.Join("internal/services", name)
 
 	if _, err := os.Stat(targetDir); err == nil {

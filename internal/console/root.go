@@ -33,12 +33,15 @@ func init() {
 	// Add all subcommands
 	rootCmd.AddCommand(makeServiceCmd)
 	rootCmd.AddCommand(genMigrationCmd)
+	rootCmd.AddCommand(remMigrationCmd)
 	rootCmd.AddCommand(genSqlcCmd)
 	rootCmd.AddCommand(remSqlcCmd)
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(loaderCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(genKeyCmd)
+	rootCmd.AddCommand(remKeyCmd)
 	rootCmd.AddCommand(genProtoCmd)
+	rootCmd.AddCommand(remProtoCmd)
 	rootCmd.AddCommand(removeServiceCmd)
 }

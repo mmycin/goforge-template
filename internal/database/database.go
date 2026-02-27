@@ -17,6 +17,7 @@ var DB *Database
 
 type Database struct {
 	Gorm *gorm.DB
+	// Sqlc field will be added when generated code is available
 }
 
 func Connect() error {
@@ -66,10 +67,6 @@ func Connect() error {
 	gormDB, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
 		return err
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	DB = &Database{

@@ -22,3 +22,4 @@ func (t *Todo) ToModel() *Todo {
 		Completed:   t.Completed,
 	}
 }
+
