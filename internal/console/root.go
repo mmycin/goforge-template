@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mmycin/goforge/internal/cache"
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,11 @@ tools for database migrations, code generation, and service scaffolding.`,
 		}
 		// Initialize logger after config is loaded
 		initLogger()
+
+		// Initialize cache
+		if err := cache.Connect(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Cache initialization failed: %v\n", err)
+		}
 	},
 }
 
