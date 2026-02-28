@@ -1,183 +1,159 @@
-# GoForge
+# GoForge Framework
 
-GoForge is a minimal, lightweight, fast, and DX-friendly microservice starter template for Golang. Built with a modular architecture and powered by top-tier Go tools.
+GoForge is a comprehensive, production-ready Go application framework designed to provide robust tooling for database migrations, code generation, caching, and service scaffolding. It comes with built-in support for multiple SQL databases, gRPC and HTTP servers, tiered caching, and a powerful CLI to speed up development.
 
-## 🚀 Key Features
+---
 
-- **CLI Interface**: Powered by Cobra
-- **Configuration**: Structured and type-safe using Viper (`config.DB.Name`)
-- **HTTP Server**: Fast and robust REST APIs with Gin
-- **Database**:
-  - **ORM**: GORM for easy relational mapping
-  - **Query**: SQLC for type-safe, performant raw SQL
-  - **Migrations**: Versioned migrations using Atlas
-- **Developer Experience**:
-  - Modular service structure
-  - Automatic route registration
-  - Graceful shutdown support
-  - Service scaffolding via CLI
+## 🚀 Features
 
-## 🛠️ Getting Started
+- **Built-in CLI (`goforge`)**: Scaffolding for services, database migrations, gRPC protobufs, and more.
+- **Multiple Databases**: Out-of-the-box support for SQLite, MySQL, PostgreSQL, and SQL Server.
+- **Advanced Caching**: Scalable caching layer supporting in-memory (Ristretto), distributed (Redis), or a tiered combination of both.
+- **Code Generation**: Automated integration for **SQLC** (type-safe SQL) and **protoc** (gRPC).
+- **Dual Server Support**: Run HTTP and gRPC servers concurrently with ease.
+- **Production Ready**: Includes rate limiting, structured logging, encryption capabilities, and environment-driven configuration.
 
-### Prerequisites
+---
 
-- Go 1.24+
-- SQLC (`go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`)
-- Atlas (`go install ariga.io/atlas/cmd/atlas@latest`)
+## 📦 Getting Started
 
-### Initial Setup
+### 1. Installation
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   go mod tidy
-   ```
-3. Configure your environment:
-   ```bash
-   cp .env.example .env # Ensure .env exists
-   ```
-
-## 💻 CLI Usage
-
-GoForge provides a powerful CLI to speed up development.
-
-### Start the API Server
+Clone your repository and install dependencies:
 
 ```bash
-go run . serve
+go mod tidy
 ```
 
-### Authentication & Security
+### 2. Environment Configuration
 
-GoForge includes an `App-Key` middleware by default to protect your APIs.
-
-1. **Generate a Key**:
-   ```bash
-   go run . gen:key
-   ```
-2. **Usage**:
-   Include the key in your request headers:
-   ```http
-   X-App-Key: your_generated_key
-   ```
-   _Note: `/health` remains publicly accessible._
-
-### Database Operations
+Copy the `.env.example` file to create your local `.env`:
 
 ```bash
-# Generate a new migration
-go run . gen:migration create_users_table
-
-# Run pending migrations
-go run . migrate
-
-# Display database schema
-go run . loader
+cp .env.example .env
 ```
 
-### Code Generation
+Generate a secure application key:
 
 ```bash
-# Generate a new modular service
-go run . make:service user
-
-# Generate SQLC query code
-go run . gen:sqlc
+go run cmd/main.go gen:key
 ```
 
-## 🏗️ Architecture
+Configure your database and caching options within the newly created `.env` file (see details below).
 
-GoForge follows a modular architecture where each feature is encapsulated within its own service directory.
+### 3. Running the Server
 
-```
-internal/services/todo/
-  ├── handler.go  # HTTP request handlers (Huma signature)
-  ├── docs.go     # Huma docs & route registration
-  ├── model.go    # GORM models
-  ├── service.go  # Business logic layer
-  └── proto.go    # gRPC definitions
+Start both the HTTP and gRPC servers:
+
+```bash
+go run cmd/main.go serve
 ```
 
-### Route Registration & Documentation
+---
 
-Services use **Huma** to define operations and generate OpenAPI documentation. Registration is handled in `docs.go`:
+## 🛠 Command Line Interface (CLI)
+
+GoForge provides an extensive CLI to automate repetitive developer tasks.
+
+### Service Scaffolding
+
+- `go run cmd/main.go gen:service <name>`: Generates a complete service footprint (HTTP routes, controllers, repository layers).
+- `go run cmd/main.go rem:service <name>`: Removes a specified service.
+
+### Database & Migrations
+
+- `go run cmd/main.go gen:migration <name>`: Creates a new timestamped migration file.
+- `go run cmd/main.go migrate`: Executes pending database migrations.
+- `go run cmd/main.go rem:migration`: Reverts the latest database migration.
+- `go run cmd/main.go loader`: Runs the GORM schema loader.
+
+### Code Generation Integrations
+
+- `go run cmd/main.go gen:sqlc`: Initializes and generates type-safe Go code from your raw SQL queries (using `sqlc`).
+- `go run cmd/main.go rem:sqlc`: Removes SQLC integration, instantly wiping the generated models to keep the repo clean.
+- `go run cmd/main.go gen:proto`: Compiles your `.proto` files into Go gRPC/protobuf code.
+- `go run cmd/main.go rem:proto`: Cleans up generated `.proto` code.
+
+---
+
+## 🗄️ Database Setup
+
+GoForge manages databases centrally. Supported database connection types (`DB_CONNECTION` in `.env`):
+
+- `sqlite`
+- `mysql`
+- `postgres`
+- `sqlserver`
+
+You can use the built-in migration system (configurable to use `atlas` or `gorm` via `DB_MIGRATOR`) to safely manage schema changes over time.
+
+---
+
+## ⚡ Caching Layer
+
+The flexible caching layer avoids deep refactoring as your scalable needs grow. The configured driver is universally accessible via `cache.Global`.
+
+### Configuration (`.env`)
+
+```ini
+CACHE_ENABLED=true
+# Options: memory | redis | both
+CACHE_DRIVER=both
+CACHE_TTL=5m
+CACHE_MAX_ITEMS=10000
+CACHE_MAX_COST=100MB
+
+# Required if driver is redis or both
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+```
+
+### Supported Drivers
+
+1. **`memory`**: Uses **Ristretto** for blazing-fast, concurrent local caching. Best for single-instance, lightweight deployments.
+2. **`redis`**: Connects to a standard Redis instance. Necessary for load-balanced environments with multiple instances requiring synchronized state.
+3. **`both` (Tiered)**: A local L1 (Memory) and distributed L2 (Redis) approach. Read misses check Redis, then populate the local cache. Writes go to both. Optimizes extreme high-read scenarios while maintaining distributed consistency.
+
+### Usage in Code
 
 ```go
-// docs.go
-func (d *TodoDocs) Register(engine *gin.Engine) {
-    config := huma.DefaultConfig("Todo API", "1.0.0")
-    config.DocsPath = "/api/docs/todo"
+import "github.com/mmycin/goforge/internal/cache"
 
-    api := humagin.New(engine, config)
+// Set a cache value
+cache.Set(ctx, "user:1", userObj, 15 * time.Minute)
 
-    h := &TodoHandler{}
+// Retrieve a cache value (pass a pointer to the target struct)
+var user User
+err := cache.Get(ctx, "user:1", &user)
 
-    huma.Register(api, huma.Operation{
-        OperationID: "get-all-todo",
-        Method:      http.MethodGet,
-        Path:        "/api/todos",
-        Summary:     "List Todo",
-    }, h.GetAll)
-}
+// Direct driver access (if absolutely necessary)
+cache.Memory.Set(ctx, "local_flag", true, 0)
+cache.Redis.Delete(ctx, "remote_key")
 ```
 
 ---
 
-## ⚙️ Configuration
+## 🚀 Deployment & Production Readiness
 
-GoForge uses **Viper** for type-safe configuration. Settings are grouped by component and accessible via the `config` package.
+When taking your GoForge application to production, strictly adhere to these practices:
 
-### Usage
+1. **Security**
+    - **Environment Variables**: Never commit the `.env` file containing secrets `APP_KEY`, `DB_PASSWORD`, or `REDIS_PASSWORD`. Pass secrets through securely managed CI/CD pipelines or Secret Managers (AWS Secrets Manager, HashiCorp Vault).
+    - **`APP_DEBUG=false`**: Always disable application debugging to prevent stack traces from leaking to the end user.
 
-```go
-import "github.com/mmycin/goforge/internal/config"
+2. **Scaling & Caching**
+    - **Multi-Instance Scaling**: If deploying multiple containers (e.g., Kubernetes, Docker Swarm), switch `CACHE_DRIVER` to `redis` or `both`. Using `memory` natively in a distributed setup will lead to cache inconsistency.
+3. **Logging (`LOG_TYPE`, `LOG_FORMAT`)**
+    - Output logs as JSON (`LOG_FORMAT=json`) rather than plain text for optimal parsing by observability tools (Datadog, ELK, Splunk).
+    - Use `LOG_TYPE=both` or `LOG_TYPE=file` paired with a reliable log rotation strategy on your production servers.
 
-dbName := config.DB.Name
-port := config.App.Port
-```
+4. **Resource Control**
+    - **Rate Limiting**: Control traffic via `RATE_LIMIT_PER_MINUTE`. Adjust this upward for internal microservices, and downward for public facing endpoints to mitigate brute force/DDoS attacks.
 
-### Adding New Config
-
-1. Add your variable to `.env`.
-2. Define the field in the corresponding struct in `internal/config/`.
-3. Viper will automatically map the environment variable to your struct during `config.Load()`.
-
----
-
-## 🛑 Graceful Shutdown
-
-GoForge listens for termination signals (`SIGINT`, `SIGTERM`) and allows the server up to 30 seconds to finish processing active requests before shutting down. This ensures zero-downtime deployments and data integrity.
-
----
-
-## 🧪 Testing
-
-GoForge encourages Test-Driven Development (TDD).
-
-```bash
-# Run all tests
-go test ./...
-
-# Run service-specific tests
-go test ./internal/services/todo/...
-```
-
----
-
-## 🔮 gRPC Support
-
-GoForge supports running a gRPC server concurrently with the HTTP server.
-
-1.  **Enable gRPC**: Set `GRPC_ENABLE=true` in `.env`.
-2.  **Define Service**: Create your `.proto` file in `proto/<service>/<service>.proto`.
-3.  **Generate Code**:
-    ```bash
-    go run . gen:proto <service_name>
-    ```
-4.  **Implement Server**: Edit `internal/services/<service>/grpc.go` to implement your logic.
-
----
-
-## 📜 License
-
-MIT
+5. **Compilation**
+    - Ensure you are building statically linked Go binaries for production execution:
+        ```bash
+        CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
+        ```
