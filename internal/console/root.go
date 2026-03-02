@@ -38,4 +38,5 @@ func Execute() error {
 func init() {
 	// Add all subcommands
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(loaderCmd)
 }
