@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/mmycin/goforge/internal/config"
 )
@@ -14,7 +15,7 @@ func Connect() error {
 	}
 
 	driver := config.Cache.Driver
-	fmt.Printf("→ Initializing cache with %s driver...\n", driver)
+	fmt.Fprintf(os.Stderr, "→ Initializing cache with %s driver...\n", driver)
 
 	switch driver {
 	case "memory":
@@ -47,6 +48,6 @@ func Connect() error {
 		return fmt.Errorf("unsupported cache driver: %s", driver)
 	}
 
-	fmt.Println("✓ Cache initialized successfully")
+	fmt.Fprintln(os.Stderr, "✓ Cache initialized successfully")
 	return nil
 }
