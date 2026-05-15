@@ -12,7 +12,6 @@ var (
 	DB      DBConfig
 	GRPC    GRPCConfig
 	HTTP    HTTPConfig
-	Cache   CacheConfig
 	Encrypt EncryptConfig
 	Log     LogConfig
 )
@@ -42,9 +41,6 @@ func Load() error {
 		return err
 	}
 	if err := loadHTTPConfig(); err != nil {
-		return err
-	}
-	if err := loadCacheConfig(); err != nil {
 		return err
 	}
 	if err := loadEncryptConfig(); err != nil {

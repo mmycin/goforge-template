@@ -1,159 +1,140 @@
 # GoForge Framework
 
-GoForge is a comprehensive, production-ready Go application framework designed to provide robust tooling for database migrations, code generation, caching, and service scaffolding. It comes with built-in support for multiple SQL databases, gRPC and HTTP servers, tiered caching, and a powerful CLI to speed up development.
+![GoForge Banner](https://raw.githubusercontent.com/mmycin/GoForge/main/assets/logo_without_bg.png)
+
+> [!IMPORTANT]
+> A comprehensive, production-ready Go application framework designed for high-performance gRPC/HTTP services, robust database management, and rapid scaffolding.
+
+GoForge provides a powerful foundation for building scalable Go applications. It eliminates boilerplate by providing integrated tooling for database migrations, type-safe SQL, and gRPC service generation.
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-- **Built-in CLI (`goforge`)**: Scaffolding for services, database migrations, gRPC protobufs, and more.
-- **Multiple Databases**: Out-of-the-box support for SQLite, MySQL, PostgreSQL, and SQL Server.
-- **Advanced Caching**: Scalable caching layer supporting in-memory (Ristretto), distributed (Redis), or a tiered combination of both.
-- **Code Generation**: Automated integration for **SQLC** (type-safe SQL) and **protoc** (gRPC).
-- **Dual Server Support**: Run HTTP and gRPC servers concurrently with ease.
-- **Production Ready**: Includes rate limiting, structured logging, encryption capabilities, and environment-driven configuration.
+- **🚀 Unified CLI (`goforge`)**: A single tool to manage your entire development lifecycle—from scaffolding to migrations.
+- **🏗️ Service Scaffolding**: Generate complete domain layers (services, repositories, gRPC stubs, and HTTP handlers) in seconds.
+- **🗄️ Database Excellence**: Native support for **Atlas** (migrations) and **SQLC** (type-safe queries) across SQLite, MySQL, and PostgreSQL.
+- **📡 Dual-Protocol Servers**: Run high-performance HTTP (Fiber) and gRPC servers concurrently with shared middleware and context.
+- **🛠️ Production Ready**: Structured JSON logging, environment configuration, rate limiting, and secure application key encryption.
 
 ---
 
-## 📦 Getting Started
+## 🏗️ Project Structure
 
-### 1. Installation
+GoForge follows a clean, modular architecture optimized for separation of concerns:
 
-Clone your repository and install dependencies:
-
-```bash
-go mod tidy
+```text
+.
+├── cmd/                # Entry points (main.go)
+├── internal/           # Private application code
+│   ├── client/         # Internal gRPC/HTTP client wrappers
+│   ├── config/         # Environment & config loaders
+│   ├── console/        # Custom application CLI commands
+│   ├── database/       # Migrations, SQLC gen, and DB core
+│   ├── server/         # HTTP/gRPC server implementations
+│   └── services/       # Domain business logic & models
+├── proto/              # Protobuf definitions
+├── tests/              # Comprehensive test suites
+├── air.toml            # Live-reloading config
+├── atlas.hcl           # Atlas migration config
+└── sqlc.yaml           # SQLC query generation config
 ```
 
-### 2. Environment Configuration
+---
 
-Copy the `.env.example` file to create your local `.env`:
+## 🏁 Getting Started
+
+### 1. Install the GoForge CLI
+
+Install the universal CLI tool to your `$GOPATH/bin`:
+
+```bash
+go install github.com/mmycin/GoForge@latest
+```
+
+### 2. Environment Setup
+
+Initialize your environment by copying the example and generating a secure application key:
 
 ```bash
 cp .env.example .env
+goforge gen:key
 ```
 
-Generate a secure application key:
+### 3. Initialize & Run
+
+Tidy your dependencies and start the development servers:
 
 ```bash
-go run cmd/main.go gen:key
+go mod tidy
+goforge app serve
 ```
 
-Configure your database and caching options within the newly created `.env` file (see details below).
+---
 
-### 3. Running the Server
+## 🛠️ Command Line Interface (CLI)
 
-Start both the HTTP and gRPC servers:
+The `goforge` CLI is your primary interface for development.
+
+### 🔑 Core Commands
+
+| Command | Description |
+| :--- | :--- |
+| `goforge gen:key` | Generates a 32-character `APP_KEY` in your `.env`. |
+| `goforge app serve` | Starts the application (HTTP & gRPC servers). |
+| `goforge version` | Checks your current GoForge CLI version. |
+
+### 🏗️ Scaffolding & Services
+
+Accelerate your development by generating boilerplate-free services:
+
+- **`goforge gen:service [name]`**: Creates a full service stack in `internal/services/`.
+- **`goforge rem:service [name]`**: Safely removes a service and its associated registrations.
+- **`goforge gen:command [name]`**: Bootstraps a new console command in `internal/console/`.
+
+### 🗄️ Database & Migrations
+
+GoForge uses **Atlas** for declarative migrations and **SQLC** for type-safe code generation.
+
+- **`goforge gen:migration [name]`**: Generates a new migration by diffing GORM models against the DB.
+- **`goforge migrate`**: Applies all pending migrations to your database.
+- **`goforge rem:migration`**: Reverts the most recent migration file.
+- **`goforge gen:sqlc`**: Compiles raw SQL in `internal/database/queries` into Go code.
+- **`goforge loader`**: Displays the current GORM schema as interpreted by Atlas.
+
+### 📡 Protocol Buffers (gRPC)
+
+- **`goforge gen:proto [name]`**: Compiles `.proto` files into Go gRPC stubs.
+- **`goforge rem:proto`**: Cleans up all generated `.pb.go` files.
+
+---
+
+## 🚀 Deployment
+
+1. **Statically Linked Binary**: Build for Linux/Docker:
+   ```bash
+   CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
+   ```
+
+### 🐳 Docker Compose
+
+You can spin up the entire stack (App + Postgres) using Docker Compose:
 
 ```bash
-go run cmd/main.go serve
+docker-compose up --build
 ```
 
----
-
-## 🛠 Command Line Interface (CLI)
-
-GoForge provides an extensive CLI to automate repetitive developer tasks.
-
-### Service Scaffolding
-
-- `go run cmd/main.go gen:service <name>`: Generates a complete service footprint (HTTP routes, controllers, repository layers).
-- `go run cmd/main.go rem:service <name>`: Removes a specified service.
-
-### Database & Migrations
-
-- `go run cmd/main.go gen:migration <name>`: Creates a new timestamped migration file.
-- `go run cmd/main.go migrate`: Executes pending database migrations.
-- `go run cmd/main.go rem:migration`: Reverts the latest database migration.
-- `go run cmd/main.go loader`: Runs the GORM schema loader.
-
-### Code Generation Integrations
-
-- `go run cmd/main.go gen:sqlc`: Initializes and generates type-safe Go code from your raw SQL queries (using `sqlc`).
-- `go run cmd/main.go rem:sqlc`: Removes SQLC integration, instantly wiping the generated models to keep the repo clean.
-- `go run cmd/main.go gen:proto`: Compiles your `.proto` files into Go gRPC/protobuf code.
-- `go run cmd/main.go rem:proto`: Cleans up generated `.proto` code.
+This will:
+1. Build the Go application using the multi-stage `Dockerfile`.
+2. Start a PostgreSQL 16 container.
+3. Automatically link them via a private network.
+2. **Production Settings**:
+   - Set `APP_DEBUG=false`
+   - Set `LOG_FORMAT=json`
+   - Ensure `APP_KEY` is set via environment secrets, not `.env` files.
 
 ---
 
-## 🗄️ Database Setup
+## 📄 License
 
-GoForge manages databases centrally. Supported database connection types (`DB_CONNECTION` in `.env`):
-
-- `sqlite`
-- `mysql`
-- `postgres`
-- `sqlserver`
-
-You can use the built-in migration system (configurable to use `atlas` or `gorm` via `DB_MIGRATOR`) to safely manage schema changes over time.
-
----
-
-## ⚡ Caching Layer
-
-The flexible caching layer avoids deep refactoring as your scalable needs grow. The configured driver is universally accessible via `cache.Global`.
-
-### Configuration (`.env`)
-
-```ini
-CACHE_ENABLED=true
-# Options: memory | redis | both
-CACHE_DRIVER=both
-CACHE_TTL=5m
-CACHE_MAX_ITEMS=10000
-CACHE_MAX_COST=100MB
-
-# Required if driver is redis or both
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-```
-
-### Supported Drivers
-
-1. **`memory`**: Uses **Ristretto** for blazing-fast, concurrent local caching. Best for single-instance, lightweight deployments.
-2. **`redis`**: Connects to a standard Redis instance. Necessary for load-balanced environments with multiple instances requiring synchronized state.
-3. **`both` (Tiered)**: A local L1 (Memory) and distributed L2 (Redis) approach. Read misses check Redis, then populate the local cache. Writes go to both. Optimizes extreme high-read scenarios while maintaining distributed consistency.
-
-### Usage in Code
-
-```go
-import "github.com/mmycin/goforge/internal/cache"
-
-// Set a cache value
-cache.Set(ctx, "user:1", userObj, 15 * time.Minute)
-
-// Retrieve a cache value (pass a pointer to the target struct)
-var user User
-err := cache.Get(ctx, "user:1", &user)
-
-// Direct driver access (if absolutely necessary)
-cache.Memory.Set(ctx, "local_flag", true, 0)
-cache.Redis.Delete(ctx, "remote_key")
-```
-
----
-
-## 🚀 Deployment & Production Readiness
-
-When taking your GoForge application to production, strictly adhere to these practices:
-
-1. **Security**
-    - **Environment Variables**: Never commit the `.env` file containing secrets `APP_KEY`, `DB_PASSWORD`, or `REDIS_PASSWORD`. Pass secrets through securely managed CI/CD pipelines or Secret Managers (AWS Secrets Manager, HashiCorp Vault).
-    - **`APP_DEBUG=false`**: Always disable application debugging to prevent stack traces from leaking to the end user.
-
-2. **Scaling & Caching**
-    - **Multi-Instance Scaling**: If deploying multiple containers (e.g., Kubernetes, Docker Swarm), switch `CACHE_DRIVER` to `redis` or `both`. Using `memory` natively in a distributed setup will lead to cache inconsistency.
-3. **Logging (`LOG_TYPE`, `LOG_FORMAT`)**
-    - Output logs as JSON (`LOG_FORMAT=json`) rather than plain text for optimal parsing by observability tools (Datadog, ELK, Splunk).
-    - Use `LOG_TYPE=both` or `LOG_TYPE=file` paired with a reliable log rotation strategy on your production servers.
-
-4. **Resource Control**
-    - **Rate Limiting**: Control traffic via `RATE_LIMIT_PER_MINUTE`. Adjust this upward for internal microservices, and downward for public facing endpoints to mitigate brute force/DDoS attacks.
-
-5. **Compilation**
-    - Ensure you are building statically linked Go binaries for production execution:
-        ```bash
-        CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
-        ```
+GoForge is open-sourced software licensed under the [Apache License 2.0](LICENSE).

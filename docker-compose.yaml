@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goforge_app
+    ports:
+      - "${APP_PORT:-3000}:${APP_PORT:-3000}"
+      - "${GRPC_PORT:-50051}:${GRPC_PORT:-50051}"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_CONNECTION=postgres
+      - DB_NAME=${DB_NAME:-forge}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - goforge_network
+
+  db:
+    image: postgres:16-alpine
+    container_name: goforge_db
+    environment:
+      - POSTGRES_DB=${DB_NAME:-forge}
+      - POSTGRES_USER=${DB_USERNAME:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-forge}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - goforge_network
+
+networks:
+  goforge_network:
+    driver: bridge
+
+volumes:
+  db_data:
