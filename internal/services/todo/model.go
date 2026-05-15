@@ -14,7 +14,7 @@ type Todo struct {
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
-func (t *Todo) ToModel() *Todo {
+func (t *Todo) ToTodoModel() *Todo {
 	return &Todo{
 		ID:          t.ID,
 		Title:       t.Title,
