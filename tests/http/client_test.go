@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mmycin/goforge/internal/client"
+	"github.com/mmycin/goforge/core/client"
 )
 
 func TestHttpClient_Do_AddsHeader(t *testing.T) {

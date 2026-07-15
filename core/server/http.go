@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mmycin/goforge/internal/config"
-	"github.com/mmycin/goforge/internal/server/middleware"
+	"github.com/mmycin/goforge/core/server/middleware"
 	"github.com/rs/zerolog/log"
 )
 

@@ -7,7 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/internal/server"
+	"github.com/mmycin/goforge/core/server"
 )
 
 func init() {
