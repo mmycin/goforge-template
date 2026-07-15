@@ -79,17 +79,8 @@ var serveCmd = &cobra.Command{
 
 			g.Go(func() error {
 				<-gCtx.Done()
-				// gRPC GracefulStop waits for all RPCs to finish, so we do it in a goroutine
-				// to allow the errgroup to proceed if needed, but here we block until done
-				// or we could use a timeout wrapper if we wanted strictly bounded shutdown.
-				// However, GracefulStop doesn't take a context.
 				log.Info().Msg("Shutting down gRPC server...")
-
-				// Standard gRPC GracefulStop block indefinitely if connections don't close.
-				// For robustness, one might want to use Stop() after a timeout.
-				// Here we trust GracefulStop for now.
-				grpcSrv.Stop()
-				log.Info().Msg("gRPC server stopped gracefully")
+				grpcSrv.StopWithTimeout(10 * time.Second)
 				return nil
 			})
 		}

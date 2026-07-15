@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/boot/server/middleware"
@@ -64,4 +65,21 @@ func (s *GRPCServer) Start() error {
 func (s *GRPCServer) Stop() {
 	log.Info().Msg("Stopping gRPC server...")
 	s.server.GracefulStop()
+}
+
+// StopWithTimeout stops gRPC server gracefully with timeout, or force stops after timeout
+func (s *GRPCServer) StopWithTimeout(timeout time.Duration) {
+	log.Info().Msg("Stopping gRPC server with timeout...")
+	done := make(chan struct{})
+	go func() {
+		s.server.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+		log.Info().Msg("gRPC server stopped gracefully")
+	case <-time.After(timeout):
+		log.Warn().Msg("gRPC server graceful stop timed out, forcing stop")
+		s.server.Stop()
+	}
 }

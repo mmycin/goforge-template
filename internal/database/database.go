@@ -20,6 +20,17 @@ type Database struct {
 	// Sqlc field will be added when generated code is available
 }
 
+// GetGorm returns the Gorm instance, or an error if not connected
+func GetGorm() (*gorm.DB, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("database not connected")
+	}
+	if DB.Gorm == nil {
+		return nil, fmt.Errorf("database gorm instance not initialized")
+	}
+	return DB.Gorm, nil
+}
+
 func Connect() error {
 	dbName := config.DB.Name
 	dbDriver := config.DB.Connection
