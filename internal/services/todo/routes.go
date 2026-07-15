@@ -2,21 +2,20 @@ package todo
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/boot/server"
 )
 
-func init() {
-	server.Register(&TodoRoutes{})
+type TodoRoutes struct {
+	handler *TodoHandler
 }
 
-type TodoRoutes struct{}
+func NewTodoRoutes(handler *TodoHandler) *TodoRoutes {
+	return &TodoRoutes{handler: handler}
+}
 
 func (r *TodoRoutes) Register(engine *gin.Engine) {
-	h := &TodoHandler{}
-
 	group := engine.Group("/api/todos")
 	// group.Use(server.AuthMiddleware())
 
-	group.GET("/", h.GetAll)
-	group.GET("/:id", h.GetByID)
+	group.GET("/", r.handler.GetAll)
+	group.GET("/:id", r.handler.GetByID)
 }

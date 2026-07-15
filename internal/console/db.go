@@ -37,7 +37,13 @@ func init() {
 
 func runLoader() {
 	models := services.Model()
-	driver := config.DB.Connection
+	// Load config to get driver
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+	driver := cfg.DB.Connection
 	if driver == "" {
 		driver = "sqlite"
 	}
@@ -51,7 +57,13 @@ func runLoader() {
 }
 
 func runMigrate() {
-	migrator := config.DB.Migrator
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+	migrator := cfg.DB.Migrator
 	if migrator == "" {
 		migrator = "atlas"
 	}
@@ -59,17 +71,21 @@ func runMigrate() {
 
 	if migrator == "gorm" {
 		fmt.Println("→ Starting GORM AutoMigrate...")
-		if err := database.Connect(); err != nil {
+		// Connect to DB
+		db, err := database.Connect(cfg.DB)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Database connection failed: %v\n", err)
 			os.Exit(1)
 		}
 
-		gormDB, err := database.GetGorm()
+		// Get GORM instance
+		gormDB, err := db.GetGorm()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
+		// AutoMigrate
 		models := services.Model()
 		if err := gormDB.AutoMigrate(models...); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: AutoMigrate failed: %v\n", err)
@@ -80,13 +96,13 @@ func runMigrate() {
 	}
 
 	fmt.Println("→ Running Atlas migrate apply...")
-	dbConn := config.DB.Connection
-	dbName := config.DB.Name
-	dbUser := config.DB.Username
-	dbPass := config.DB.Password
-	dbHost := config.DB.Host
-	dbPort := fmt.Sprintf("%d", config.DB.Port)
-	dbDevName := config.DB.DevName
+	dbConn := cfg.DB.Connection
+	dbName := cfg.DB.Name
+	dbUser := cfg.DB.Username
+	dbPass := cfg.DB.Password
+	dbHost := cfg.DB.Host
+	dbPort := fmt.Sprintf("%d", cfg.DB.Port)
+	dbDevName := cfg.DB.DevName
 
 	atlasEnv := os.Environ()
 	atlasEnv = append(atlasEnv, "DB_CONNECTION="+dbConn)

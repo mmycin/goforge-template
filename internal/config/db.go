@@ -14,8 +14,8 @@ type DBConfig struct {
 	Migrator   string
 }
 
-func loadDBConfig() error {
-	DB = DBConfig{
+func loadDBConfig() (DBConfig, error) {
+	return DBConfig{
 		Connection: viper.GetString("DB_CONNECTION"),
 		Name:       viper.GetString("DB_NAME"),
 		DevName:    viper.GetString("DB_DEV_NAME"),
@@ -24,6 +24,5 @@ func loadDBConfig() error {
 		Username:   viper.GetString("DB_USERNAME"),
 		Password:   viper.GetString("DB_PASSWORD"),
 		Migrator:   viper.GetString("DB_MIGRATOR"),
-	}
-	return nil
+	}, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync" // Added sync for registry
 
 	"github.com/gin-gonic/gin"
 	"github.com/mmycin/goforge/internal/config"
@@ -17,28 +16,6 @@ type Router interface {
 	Register(engine *gin.Engine)
 }
 
-var (
-	routers []Router
-	mu      sync.Mutex
-)
-
-// Register adds a router to the global registry
-func Register(r Router) {
-	mu.Lock()
-	defer mu.Unlock()
-	routers = append(routers, r)
-}
-
-// GetRegisteredRouters returns all registered routers
-func GetRegisteredRouters() []Router {
-	mu.Lock()
-	defer mu.Unlock()
-
-	r := make([]Router, len(routers))
-	copy(r, routers)
-	return r
-}
-
 // HTTPServer represents the HTTP server
 type HTTPServer struct {
 	engine *gin.Engine
@@ -46,9 +23,9 @@ type HTTPServer struct {
 }
 
 // NewHTTPServer creates a new HTTP server instance
-func NewHTTPServer(routers []Router) *HTTPServer {
+func NewHTTPServer(cfg *config.AllConfig, routers []Router) *HTTPServer {
 	// Set Gin mode based on debug config
-	if !config.App.Debug {
+	if !cfg.App.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -65,8 +42,8 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "healthy",
-			"service": config.App.Name,
-			"version": config.App.Version,
+			"service": cfg.App.Name,
+			"version": cfg.App.Version,
 		})
 	})
 
@@ -79,7 +56,7 @@ func NewHTTPServer(routers []Router) *HTTPServer {
 	}
 
 	// Create HTTP server
-	addr := fmt.Sprintf("%s:%d", config.App.Host, config.App.Port)
+	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
 	server := &http.Server{
 		Addr:    addr,
 		Handler: engine,

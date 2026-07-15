@@ -13,8 +13,8 @@ type AppConfig struct {
 	Port    int
 }
 
-func loadAppConfig() error {
-	App = AppConfig{
+func loadAppConfig() (AppConfig, error) {
+	return AppConfig{
 		Name:    viper.GetString("APP_NAME"),
 		Version: viper.GetString("APP_VERSION"),
 		Module:  viper.GetString("APP_MODULE"),
@@ -22,6 +22,5 @@ func loadAppConfig() error {
 		Key:     viper.GetString("APP_KEY"),
 		Host:    viper.GetString("APP_HOST"),
 		Port:    viper.GetInt("APP_PORT"),
-	}
-	return nil
+	}, nil
 }

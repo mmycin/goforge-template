@@ -10,12 +10,11 @@ type LogConfig struct {
 	Format string
 }
 
-func loadLogConfig() error {
-	Log = LogConfig{
+func loadLogConfig() (LogConfig, error) {
+	return LogConfig{
 		Type:   viper.GetString("LOG_TYPE"),
 		Level:  viper.GetString("LOG_LEVEL"),
 		Path:   viper.GetString("LOG_PATH"),
 		Format: viper.GetString("LOG_FORMAT"),
-	}
-	return nil
+	}, nil
 }

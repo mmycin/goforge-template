@@ -10,11 +10,12 @@ import (
 	"github.com/mmycin/goforge/boot/server"
 )
 
-func init() {
-	server.Register(&TodoDocs{})
-}
-
 type TodoDocs struct{}
+
+// NewTodoDocs creates a new TodoDocs instance
+func NewTodoDocs() *TodoDocs {
+	return &TodoDocs{}
+}
 
 func (d *TodoDocs) Register(engine *gin.Engine) {
 	// Use the global config helper to get pre-configured Huma config with security

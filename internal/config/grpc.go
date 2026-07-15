@@ -10,12 +10,11 @@ type GRPCConfig struct {
 	Port       int
 }
 
-func loadGRPCConfig() error {
-	GRPC = GRPCConfig{
+func loadGRPCConfig() (GRPCConfig, error) {
+	return GRPCConfig{
 		Enable:     viper.GetBool("GRPC_ENABLE"),
 		Reflection: viper.GetBool("GRPC_REFLECTION"),
 		Host:       viper.GetString("GRPC_HOST"),
 		Port:       viper.GetInt("GRPC_PORT"),
-	}
-	return nil
+	}, nil
 }

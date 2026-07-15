@@ -9,11 +9,10 @@ type EncryptConfig struct {
 	Salt   string
 }
 
-func loadEncryptConfig() error {
-	Encrypt = EncryptConfig{
+func loadEncryptConfig() (EncryptConfig, error) {
+	return EncryptConfig{
 		Key:    viper.GetString("ENCRYPTION_KEY"),
 		Rounds: viper.GetInt("ENCRYPTION_ROUNDS"),
 		Salt:   viper.GetString("ENCRYPTION_SALT"),
-	}
-	return nil
+	}, nil
 }

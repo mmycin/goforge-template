@@ -8,10 +8,9 @@ type HTTPConfig struct {
 	CORSAllowedOrigins string
 }
 
-func loadHTTPConfig() error {
-	HTTP = HTTPConfig{
+func loadHTTPConfig() (HTTPConfig, error) {
+	return HTTPConfig{
 		RateLimitPerMinute: viper.GetInt("RATE_LIMIT_PER_MINUTE"),
 		CORSAllowedOrigins: viper.GetString("CORS_ALLOWED_ORIGINS"),
-	}
-	return nil
+	}, nil
 }

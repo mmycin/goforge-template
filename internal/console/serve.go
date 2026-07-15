@@ -1,21 +1,14 @@
 package console
 
 import (
-	"context"
-	"fmt"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
+	"github.com/mmycin/goforge/boot"
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/database"
-	"github.com/mmycin/goforge/boot/server"
 	"github.com/mmycin/goforge/internal/services"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 )
 
 var serveCmd = &cobra.Command{
@@ -25,73 +18,39 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info().Msg("Initializing GoForge Server")
 
-		// Create context that listens for the interrupt signal from the OS.
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
+		// Load config and connect to DB via boot.NewApp
+		// First, we need to create a temporary config to pass to services.InitializeServices?
+		// Wait no, let's first load config, then connect to DB, then init services, then create app
+		// Let's adjust boot.NewApp to take services? Or let's load config, connect DB, init services, then create app
+		// Let's modify the approach here:
+		cfg, err := config.Load()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to load config")
+			os.Exit(1)
+		}
 
-		// Error group for managing multiple server goroutines
-		g, gCtx := errgroup.WithContext(ctx)
-
-		log.Info().Msg("→ Connecting to database...")
-		if err := database.Connect(); err != nil {
+		db, err := database.Connect(cfg.DB)
+		if err != nil {
 			log.Error().Err(err).Msg("Database connection failed")
 			os.Exit(1)
 		}
 
-		// --- HTTP Server ---
-		routers := services.GetRouters()
-		httpSrv := server.NewHTTPServer(routers)
-
-		g.Go(func() error {
-			if err := httpSrv.Start(); err != nil && err != http.ErrServerClosed {
-				log.Error().Err(err).Msg("HTTP server failed")
-				return err
-			}
-			return nil
+		// Initialize services
+		routers, grpcRegistries := services.InitializeServices(services.ServicesConfig{
+			DB: db,
 		})
 
-		g.Go(func() error {
-			<-gCtx.Done()
-			log.Info().Msg("Shutting down HTTP server...")
-
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			if err := httpSrv.Stop(shutdownCtx); err != nil {
-				log.Error().Err(err).Msg("HTTP server forced to shutdown")
-				return err
-			}
-			log.Info().Msg("HTTP server stopped gracefully")
-			return nil
-		})
-
-		// --- gRPC Server ---
-		if config.GRPC.Enable {
-			grpcSrv := server.NewGRPCServer()
-
-			g.Go(func() error {
-				if err := grpcSrv.Start(); err != nil {
-					log.Error().Err(err).Msg("gRPC server failed")
-					return err
-				}
-				return nil
-			})
-
-			g.Go(func() error {
-				<-gCtx.Done()
-				log.Info().Msg("Shutting down gRPC server...")
-				grpcSrv.StopWithTimeout(10 * time.Second)
-				return nil
-			})
+		// Create app
+		app, err := boot.NewAppWithServices(cfg, db, routers, grpcRegistries)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create app")
+			os.Exit(1)
 		}
 
-		// Wait for all servers to stop
-		if err := g.Wait(); err != nil {
-			// If error is context.Canceled, it's a normal shutdown usually
-			if err != context.Canceled {
-				fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-			}
+		// Start app
+		if err := app.Start(); err != nil {
+			log.Error().Err(err).Msg("Server failed")
+			os.Exit(1)
 		}
-		log.Info().Msg("Server shutdown complete")
 	},
 }

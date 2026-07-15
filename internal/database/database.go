@@ -13,27 +13,32 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *Database
-
 type Database struct {
 	Gorm *gorm.DB
 	// Sqlc field will be added when generated code is available
+	Sqlc any
 }
 
-// GetGorm returns the Gorm instance, or an error if not connected
-func GetGorm() (*gorm.DB, error) {
-	if DB == nil {
-		return nil, fmt.Errorf("database not connected")
+// NewDatabase creates a new Database instance
+func NewDatabase(gormDB *gorm.DB) *Database {
+	return &Database{Gorm: gormDB}
+}
+
+// GetGorm returns the Gorm instance with nil check
+func (d *Database) GetGorm() (*gorm.DB, error) {
+	if d == nil {
+		return nil, fmt.Errorf("database instance is nil")
 	}
-	if DB.Gorm == nil {
+	if d.Gorm == nil {
 		return nil, fmt.Errorf("database gorm instance not initialized")
 	}
-	return DB.Gorm, nil
+	return d.Gorm, nil
 }
 
-func Connect() error {
-	dbName := config.DB.Name
-	dbDriver := config.DB.Connection
+// Connect takes DBConfig and returns *Database
+func Connect(cfg config.DBConfig) (*Database, error) {
+	dbName := cfg.Name
+	dbDriver := cfg.Connection
 	dbDsn := ""
 
 	if dbDriver == "" {
@@ -49,15 +54,15 @@ func Connect() error {
 		switch dbDriver {
 		case "mysql":
 			dbDsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
+				cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 		case "postgres":
 			dbDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
-				config.DB.Host, config.DB.Username, config.DB.Password, config.DB.Name, config.DB.Port)
+				cfg.Host, cfg.Username, cfg.Password, cfg.Name, cfg.Port)
 		case "sqlite":
 			dbDsn = dbName
 		case "sqlserver":
 			dbDsn = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-				config.DB.Username, config.DB.Password, config.DB.Host, config.DB.Port, config.DB.Name)
+				cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 		}
 	}
 
@@ -72,17 +77,13 @@ func Connect() error {
 	case "sqlserver":
 		dialector = sqlserver.Open(dbDsn)
 	default:
-		return fmt.Errorf("unsupported database driver: %s", dbDriver)
+		return nil, fmt.Errorf("unsupported database driver: %s", dbDriver)
 	}
 
 	gormDB, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	DB = &Database{
-		Gorm: gormDB,
-	}
-
-	return nil
+	return NewDatabase(gormDB), nil
 }

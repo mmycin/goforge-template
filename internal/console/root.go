@@ -15,7 +15,7 @@ var rootCmd = &cobra.Command{
 tools for database migrations, code generation, and service scaffolding.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Load configuration before any command runs
-		if err := config.Load(); err != nil {
+		if _, err := config.Load(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
 			os.Exit(1)
 		}
