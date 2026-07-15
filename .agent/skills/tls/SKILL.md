@@ -3,7 +3,7 @@
 Use this skill when a task touches TLS configuration or certificate management.
 
 Read first:
-- `internal/config/http.go` — `HTTPConfig.TLSEnabled`, `TLSCertFile`, `TLSKeyFile`
+- `core/config/http.go` — `HTTPConfig.TLSEnabled`, `TLSCertFile`, `TLSKeyFile`
 - `boot/server/http.go` — `Start()` branches on `TLSEnabled`
 
 Configuration (`.env`):
@@ -15,10 +15,8 @@ TLS_KEY_FILE=key.pem
 
 Local development (self-signed cert):
 ```bash
-openssl req -x509 -newkey rsa:4096 \
-  -keyout key.pem -out cert.pem \
-  -days 365 -nodes \
-  -subj "/CN=localhost"
+bash .agent/skills/tls/gen-cert.sh          # defaults: CN=localhost, 365 days
+bash .agent/skills/tls/gen-cert.sh 730 myapp.local  # custom days + CN
 ```
 
 Production:

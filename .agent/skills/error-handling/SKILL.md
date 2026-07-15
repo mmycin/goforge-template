@@ -3,7 +3,7 @@
 Use this skill when a task touches error responses, error wrapping, or HTTP status codes.
 
 Read first:
-- `internal/errors/errors.go`
+- `core/errors/errors.go`
 - `boot/server/middleware/error.go`
 
 Key concepts:

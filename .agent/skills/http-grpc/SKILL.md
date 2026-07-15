@@ -12,6 +12,12 @@ Proto files:
 - Definitions live in `internal/proto/<name>/<name>.proto`
 - Generated code goes in `internal/proto/<name>/gen/`
 
+```bash
+bash .agent/skills/http-grpc/proto.sh           # compile all
+bash .agent/skills/http-grpc/proto.sh <name>    # compile one service
+bash .agent/skills/http-grpc/proto.sh --clean   # remove all generated .pb.go files
+```
+
 Checks:
 - Are handlers delegating to services cleanly?
 - Are middleware expectations still correct?

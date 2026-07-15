@@ -11,9 +11,9 @@ Read first:
 
 Workflow:
 1. Change the model in `internal/services/<name>/model.go`.
-2. Run `goforge gen:migration <name>` to generate the Atlas diff.
-3. Run `goforge migrate` to apply.
-4. If using sqlc: update queries in `internal/database/queries/`, run `goforge gen:sqlc`.
+2. Run `bash .agent/skills/database-migrations/migrate.sh <migration-name>` to diff and apply.
+3. If using sqlc: update queries in `internal/database/queries/`, run `bash .agent/skills/database-migrations/sqlc.sh`.
+4. To undo the last migration: `bash .agent/skills/database-migrations/rollback.sh`.
 5. Keep `.env.example` aligned if new database settings are required.
 6. Verify the service code still handles nil and error cases correctly.
 

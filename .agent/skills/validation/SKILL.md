@@ -3,7 +3,7 @@
 Use this skill when a task changes request validation or adds new input rules.
 
 Read first:
-- `internal/validator/validator.go`
+- `core/validator/validator.go`
 
 Key concepts:
 - The `validator` package wraps `go-playground/validator/v10` with English translations and JSON field names.
