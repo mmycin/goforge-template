@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mmycin/goforge/core/client"
+	"github.com/mmycin/goforge/boot/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"

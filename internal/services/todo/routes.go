@@ -2,7 +2,7 @@ package todo
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/core/server"
+	"github.com/mmycin/goforge/boot/server"
 )
 
 func init() {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/internal/database"
-	"github.com/mmycin/goforge/core/server"
+	"github.com/mmycin/goforge/boot/server"
 	"github.com/mmycin/goforge/internal/services"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
