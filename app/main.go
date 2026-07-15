@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmycin/goforge/internal/console"
+	"github.com/mmycin/goforge/core/console"
 )
 
 func main() {

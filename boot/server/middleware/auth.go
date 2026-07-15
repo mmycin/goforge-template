@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 )
 
 // ValidateAppKey checks if the provided key matches the configured App Key

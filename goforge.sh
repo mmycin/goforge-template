@@ -1,2 +1,2 @@
 #!/bin/bash
-go run cmd/main.go "$@"
+go run app/main.go "$@"

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/mmycin/goforge/boot/server"
-	"github.com/mmycin/goforge/internal/config"
-	"github.com/mmycin/goforge/internal/database"
+	"github.com/mmycin/goforge/core/config"
+	"github.com/mmycin/goforge/core/database"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )

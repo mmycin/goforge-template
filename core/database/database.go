@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"

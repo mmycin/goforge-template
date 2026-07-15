@@ -2,12 +2,13 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/internal/config"
 	"github.com/mmycin/goforge/boot/server/middleware"
+	"github.com/mmycin/goforge/core/config"
 	"github.com/rs/zerolog/log"
 )
 
@@ -18,8 +19,9 @@ type Router interface {
 
 // HTTPServer represents the HTTP server
 type HTTPServer struct {
-	engine *gin.Engine
-	server *http.Server
+	engine    *gin.Engine
+	server    *http.Server
+	tlsConfig *config.HTTPConfig
 }
 
 // NewHTTPServer creates a new HTTP server instance
@@ -37,6 +39,7 @@ func NewHTTPServer(cfg *config.AllConfig, routers []Router) *HTTPServer {
 	engine.Use(middleware.CustomLogger())
 	engine.Use(middleware.CORS())
 	engine.Use(middleware.RateLimiter())
+	engine.Use(middleware.ErrorHandler())
 
 	// Health check endpoint (Public)
 	engine.GET("/health", func(c *gin.Context) {
@@ -57,19 +60,38 @@ func NewHTTPServer(cfg *config.AllConfig, routers []Router) *HTTPServer {
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
-	server := &http.Server{
+	srv := &http.Server{
 		Addr:    addr,
 		Handler: engine,
 	}
 
+	// Apply TLS configuration when enabled
+	if cfg.HTTP.TLSEnabled {
+		srv.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
 	return &HTTPServer{
-		engine: engine,
-		server: server,
+		engine:    engine,
+		server:    srv,
+		tlsConfig: &cfg.HTTP,
 	}
 }
 
-// Start starts the HTTP server
+// Start starts the HTTP server (plain HTTP or HTTPS depending on config)
 func (s *HTTPServer) Start() error {
+	if s.tlsConfig.TLSEnabled {
+		if s.tlsConfig.TLSCertFile == "" || s.tlsConfig.TLSKeyFile == "" {
+			return fmt.Errorf("TLS is enabled but TLS_CERT_FILE and/or TLS_KEY_FILE are not set")
+		}
+		log.Info().Str("addr", s.server.Addr).Msg("Starting HTTPS server")
+		if err := s.server.ListenAndServeTLS(s.tlsConfig.TLSCertFile, s.tlsConfig.TLSKeyFile); err != nil && err != http.ErrServerClosed {
+			return fmt.Errorf("HTTPS server ListenAndServeTLS failed: %w", err)
+		}
+		return nil
+	}
+
 	log.Info().Str("addr", s.server.Addr).Msg("Starting HTTP server")
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server ListenAndServe failed: %w", err)

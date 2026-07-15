@@ -3,17 +3,22 @@
 Use this skill when models, queries, or schema-affecting behavior change.
 
 Read first:
-- `internal/database/database.go`
-- `internal/database/migrations/`
+- `core/database/database.go`         ← framework DB wiring (do not edit)
+- `internal/database/migrations/`     ← user-owned: Atlas migration files
+- `internal/database/queries/`        ← user-owned: raw SQL for sqlc
 - `atlas.hcl`
 - `sqlc.yaml`
 
 Workflow:
-1. Change the model or query.
-2. Decide whether Atlas migration output is needed.
-3. Keep `.env.example` aligned if new database settings are required.
-4. Verify the service code still handles nil and error cases correctly.
+1. Change the model in `internal/services/<name>/model.go`.
+2. Run `goforge gen:migration <name>` to generate the Atlas diff.
+3. Run `goforge migrate` to apply.
+4. If using sqlc: update queries in `internal/database/queries/`, run `goforge gen:sqlc`.
+5. Keep `.env.example` aligned if new database settings are required.
+6. Verify the service code still handles nil and error cases correctly.
 
 Guardrails:
+- `core/database/database.go` is framework-owned — do not edit it.
+- User migration files live in `internal/database/migrations/` — always user-editable.
 - Do not treat schema changes as incidental.
 - Keep migration-related changes small and explicit.

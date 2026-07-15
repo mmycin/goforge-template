@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

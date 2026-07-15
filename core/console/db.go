@@ -6,8 +6,8 @@ import (
 	"os/exec"
 
 	"ariga.io/atlas-provider-gorm/gormschema"
-	"github.com/mmycin/goforge/internal/config"
-	"github.com/mmycin/goforge/internal/database"
+	"github.com/mmycin/goforge/core/config"
+	"github.com/mmycin/goforge/core/database"
 	"github.com/mmycin/goforge/internal/services"
 	"github.com/spf13/cobra"
 )

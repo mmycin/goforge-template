@@ -18,4 +18,5 @@ func (r *TodoRoutes) Register(engine *gin.Engine) {
 
 	group.GET("/", r.handler.GetAll)
 	group.GET("/:id", r.handler.GetByID)
+	group.POST("/", r.handler.Create)
 }

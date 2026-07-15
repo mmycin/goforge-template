@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 	"golang.org/x/time/rate"
 )
 

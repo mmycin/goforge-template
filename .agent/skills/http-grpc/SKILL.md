@@ -6,7 +6,11 @@ Read first:
 - `boot/server/http.go`
 - `boot/server/grpc.go`
 - `boot/server/middleware/`
-- the owning service's `handler.go`, `routes.go`, or `grpc.go`
+- the owning service's `internal/services/<name>/handler.go`, `routes.go`, or `grpc.go`
+
+Proto files:
+- Definitions live in `internal/proto/<name>/<name>.proto`
+- Generated code goes in `internal/proto/<name>/gen/`
 
 Checks:
 - Are handlers delegating to services cleanly?
@@ -15,5 +19,6 @@ Checks:
 - Do route registrations remain local and readable?
 
 Guardrails:
+- `boot/server/` is framework-owned — do not edit it for service-specific logic.
 - Keep HTTP and gRPC transport concerns out of core domain logic.
 - Preserve existing startup and shutdown semantics.

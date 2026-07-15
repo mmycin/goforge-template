@@ -2,7 +2,7 @@ package services
 
 import (
 	"github.com/mmycin/goforge/boot/server"
-	"github.com/mmycin/goforge/internal/database"
+	"github.com/mmycin/goforge/core/database"
 	"github.com/mmycin/goforge/internal/services/todo"
 )
 

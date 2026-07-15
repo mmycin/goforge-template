@@ -1,6 +1,27 @@
-*.env
-*.exe
-*.db
-bin/*
-storage/*
+# Secrets and local config
 .env
+*.env
+
+# Binaries
+*.exe
+cmd.exe
+bin/*
+tmp/*
+
+# Database files
+*.db
+
+# Logs and storage
+storage/*
+
+# Generated sqlc code (regenerate with `goforge gen:sqlc`)
+internal/database/gen/
+
+# TLS certificates (never commit)
+*.pem
+*.key
+*.crt
+*.p12
+
+# Air live-reload temp
+tmp/

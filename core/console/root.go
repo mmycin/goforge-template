@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 	"github.com/spf13/cobra"
 )
 

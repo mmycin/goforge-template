@@ -10,7 +10,8 @@ Review for:
 - gRPC shutdown and timeout handling.
 - Middleware or route registration drift.
 - Database model changes without migration impact considered.
-- Tests missing for new behavior.
+- Tests missing for new behavior in `internal/tests/`.
+- Edits made to `core/` or `boot/` that should instead live in `internal/services/`.
 
 Prefer findings in this order:
 1. Bugs

@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/mmycin/goforge/internal/config"
+	"github.com/mmycin/goforge/core/config"
 	"github.com/mmycin/goforge/boot/server/middleware"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
