@@ -7,13 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Logger returns a gin middleware for logging requests
-func Logger() gin.HandlerFunc {
-	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		return ""
-	})
-}
-
 // CustomLogger creates a custom logger middleware
 func CustomLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {

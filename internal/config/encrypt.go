@@ -12,7 +12,7 @@ type EncryptConfig struct {
 func loadEncryptConfig() error {
 	Encrypt = EncryptConfig{
 		Key:    viper.GetString("ENCRYPTION_KEY"),
-		Rounds: viper.GetInt("ENCRPTION_ROUNDS"),
+		Rounds: viper.GetInt("ENCRYPTION_ROUNDS"),
 		Salt:   viper.GetString("ENCRYPTION_SALT"),
 	}
 	return nil
