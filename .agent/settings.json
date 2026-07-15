@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "project": "goforge-template",
+  "description": "Agent-agnostic workspace guidance for working inside the GoForge generated application template.",
+  "commands_dir": ".agent/commands",
+  "rules_dir": ".agent/rules",
+  "skills_dir": ".agent/skills",
+  "default_entrypoints": [
+    "README.md",
+    ".agent/commands/context.md",
+    ".agent/rules/architecture.md"
+  ]
+}
