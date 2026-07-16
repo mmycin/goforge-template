@@ -15,6 +15,18 @@ import (
 // GRPCRegistry is a function type for registering gRPC services
 type GRPCRegistry func(server *grpc.Server)
 
+var grpcRegistries []GRPCRegistry
+
+// RegisterGRPC registers a gRPC service registry function to be called when the server starts
+func RegisterGRPC(registry GRPCRegistry) {
+	grpcRegistries = append(grpcRegistries, registry)
+}
+
+// GetGRPCRegistries returns all registered gRPC service registries
+func GetGRPCRegistries() []GRPCRegistry {
+	return grpcRegistries
+}
+
 // GRPCServer represents the gRPC server
 type GRPCServer struct {
 	server *grpc.Server
@@ -26,8 +38,9 @@ func NewGRPCServer(cfg *config.AllConfig, registries []GRPCRegistry) *GRPCServer
 	// Apply unified middleware
 	s := grpc.NewServer(middleware.GrpcInterceptor())
 
-	// Register all services
-	for _, register := range registries {
+	// Register all services (both passed in and global registries)
+	allRegistries := append(registries, grpcRegistries...)
+	for _, register := range allRegistries {
 		register(s)
 	}
 
