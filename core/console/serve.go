@@ -6,6 +6,7 @@ import (
 	"github.com/mmycin/goforge/boot"
 	"github.com/mmycin/goforge/core/config"
 	"github.com/mmycin/goforge/core/database"
+	"github.com/mmycin/goforge/core/events"
 	"github.com/mmycin/goforge/internal/services"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -18,11 +19,6 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info().Msg("Initializing GoForge Server")
 
-		// Load config and connect to DB via boot.NewApp
-		// First, we need to create a temporary config to pass to services.InitializeServices?
-		// Wait no, let's first load config, then connect to DB, then init services, then create app
-		// Let's adjust boot.NewApp to take services? Or let's load config, connect DB, init services, then create app
-		// Let's modify the approach here:
 		cfg, err := config.Load()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to load config")
@@ -35,19 +31,21 @@ var serveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Initialize services
+		// Create the event bus before services so listeners can be registered
+		// inside InitializeServices.
+		bus := events.New()
+
 		routers, grpcRegistries := services.InitializeServices(services.ServicesConfig{
-			DB: db,
+			DB:  db,
+			Bus: bus,
 		})
 
-		// Create app
-		app, err := boot.NewAppWithServices(cfg, db, routers, grpcRegistries)
+		app, err := boot.NewAppWithServices(cfg, db, bus, routers, grpcRegistries)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create app")
 			os.Exit(1)
 		}
 
-		// Start app
 		if err := app.Start(); err != nil {
 			log.Error().Err(err).Msg("Server failed")
 			os.Exit(1)

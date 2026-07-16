@@ -12,67 +12,73 @@ import (
 	"github.com/mmycin/goforge/boot/server"
 	"github.com/mmycin/goforge/core/config"
 	"github.com/mmycin/goforge/core/database"
+	"github.com/mmycin/goforge/core/events"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
 
-// App holds all core application dependencies
+// App holds all core application dependencies.
 type App struct {
 	Config     *config.AllConfig
 	Database   *database.Database
+	EventBus   *events.EventBus
 	HTTPServer *server.HTTPServer
 	GRPCServer *server.GRPCServer
 }
 
-// NewApp creates and bootstraps a new App instance
+// NewApp creates and bootstraps a new App instance without pre-initialized services.
 func NewApp(httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) (*App, error) {
-	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Connect to database
 	db, err := database.Connect(cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Initialize servers
 	httpSrv := server.NewHTTPServer(cfg, httpRouters)
 	grpcSrv := server.NewGRPCServer(cfg, grpcRegistries)
 
 	return &App{
 		Config:     cfg,
 		Database:   db,
+		EventBus:   events.New(),
 		HTTPServer: httpSrv,
 		GRPCServer: grpcSrv,
 	}, nil
 }
 
-// NewAppWithServices creates a new App instance with pre-initialized config and database
-func NewAppWithServices(cfg *config.AllConfig, db *database.Database, httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) (*App, error) {
-	// Initialize servers
+// NewAppWithServices creates a new App instance with pre-initialized dependencies.
+// bus is created in core/console/serve.go and passed in so listeners registered
+// during InitializeServices are already attached before Start() is called.
+func NewAppWithServices(
+	cfg            *config.AllConfig,
+	db             *database.Database,
+	bus            *events.EventBus,
+	httpRouters    []server.Router,
+	grpcRegistries []server.GRPCRegistry,
+) (*App, error) {
 	httpSrv := server.NewHTTPServer(cfg, httpRouters)
 	grpcSrv := server.NewGRPCServer(cfg, grpcRegistries)
 
 	return &App{
 		Config:     cfg,
 		Database:   db,
+		EventBus:   bus,
 		HTTPServer: httpSrv,
 		GRPCServer: grpcSrv,
 	}, nil
 }
 
-// Start starts all servers and manages graceful shutdown
+// Start starts all servers and manages graceful shutdown.
 func (app *App) Start() error {
 	log.Info().Msg("Initializing GoForge Server")
 
-	// Create context that listens for interrupt signals
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Error group for managing server goroutines
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// --- HTTP Server ---
@@ -117,13 +123,24 @@ func (app *App) Start() error {
 		})
 	}
 
-	// Wait for all servers to stop
+	// Wait for all servers to stop.
 	if err := g.Wait(); err != nil {
 		if err != context.Canceled {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			return err
 		}
 	}
+
+	// Drain the event bus after servers are down — no new events can arrive.
+	log.Info().Msg("Draining event bus...")
+	drainCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := app.EventBus.Shutdown(drainCtx); err != nil {
+		log.Warn().Err(err).Msg("Event bus drain timed out; some events may be unprocessed")
+	} else {
+		log.Info().Msg("Event bus drained")
+	}
+
 	log.Info().Msg("Server shutdown complete")
 	return nil
 }

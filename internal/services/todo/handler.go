@@ -64,7 +64,6 @@ func (h *TodoHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Validate using the dedicated validator package
 	if appErr := validator.Validate(req); appErr != nil {
 		_ = c.Error(appErr)
 		return
@@ -78,5 +77,60 @@ func (h *TodoHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Todo created",
 		"data":    todo,
+	})
+}
+
+// UpdateTodoRequest is the expected JSON body for updating a todo.
+type UpdateTodoRequest struct {
+	Title       string `json:"title"       validate:"required,min=1,max=255"`
+	Description string `json:"description" validate:"required,min=1,max=255"`
+}
+
+// Update updates an existing todo item.
+func (h *TodoHandler) Update(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		_ = c.Error(apperrors.ErrBadRequest("id must be a positive integer").Wrap(err))
+		return
+	}
+
+	var req UpdateTodoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		_ = c.Error(apperrors.ErrBadRequest("invalid request body").Wrap(err))
+		return
+	}
+
+	if appErr := validator.Validate(req); appErr != nil {
+		_ = c.Error(appErr)
+		return
+	}
+
+	todo, err := h.service.Update(c.Request.Context(), uint(id), req.Title, req.Description)
+	if err != nil {
+		_ = c.Error(apperrors.ErrInternalServer("failed to update todo").Wrap(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Todo updated",
+		"data":    todo,
+	})
+}
+
+// Delete removes a todo item by ID.
+func (h *TodoHandler) Delete(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		_ = c.Error(apperrors.ErrBadRequest("id must be a positive integer").Wrap(err))
+		return
+	}
+
+	if err := h.service.Delete(c.Request.Context(), uint(id)); err != nil {
+		_ = c.Error(apperrors.ErrInternalServer("failed to delete todo").Wrap(err))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Todo deleted",
 	})
 }

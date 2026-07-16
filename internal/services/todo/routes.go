@@ -14,9 +14,10 @@ func NewTodoRoutes(handler *TodoHandler) *TodoRoutes {
 
 func (r *TodoRoutes) Register(engine *gin.Engine) {
 	group := engine.Group("/api/todos")
-	// group.Use(server.AuthMiddleware())
 
 	group.GET("/", r.handler.GetAll)
 	group.GET("/:id", r.handler.GetByID)
 	group.POST("/", r.handler.Create)
+	group.PUT("/:id", r.handler.Update)
+	group.DELETE("/:id", r.handler.Delete)
 }

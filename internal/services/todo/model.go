@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Todo represents a single todo item in the database
+// Todo represents a single todo item in the database.
 type Todo struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Title       string    `gorm:"size:255;not null" json:"title"`
@@ -21,5 +21,14 @@ func (t *Todo) ToTodoModel() *Todo {
 		Description: t.Description,
 		Completed:   t.Completed,
 	}
+}
+
+// AuditLog records every create/update/delete action on a todo.
+type AuditLog struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Action     string    `gorm:"size:50;not null" json:"action"`
+	ResourceID uint      `gorm:"not null;index" json:"resource_id"`
+	Note       string    `gorm:"size:255" json:"note"`
+	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
