@@ -12,10 +12,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// atlasConfig is the path to the Atlas config file relative to the project root.
-// Atlas always runs from the project root (where go.mod lives), so all paths
-// inside atlas.hcl (migrations dir, go run program) remain root-relative.
-const atlasConfig = "core/database/atlas.hcl"
+// atlasConfig is the Atlas --config URI.
+// Atlas requires the file:// scheme regardless of OS.
+const atlasConfig = "file://core/database/atlas.hcl"
 
 // sqlcConfig is the path to the sqlc config file relative to the project root.
 const sqlcConfig = "core/database/sqlc.yaml"

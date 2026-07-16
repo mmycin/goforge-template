@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package todo;
-option go_package = "github.com/mmycin/goforge/proto/todo/gen";
+option go_package = "github.com/mmycin/goforge/internal/proto/todo/gen";
 
 service TodoService {
   rpc CreateTodo(CreateTodoRequest) returns (Todo);
