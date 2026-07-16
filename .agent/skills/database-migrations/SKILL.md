@@ -6,8 +6,8 @@ Read first:
 - `core/database/database.go`         ← framework DB wiring (do not edit)
 - `internal/database/migrations/`     ← user-owned: Atlas migration files
 - `internal/database/queries/`        ← user-owned: raw SQL for sqlc
-- `atlas.hcl`
-- `sqlc.yaml`
+- `core/database/atlas.hcl`
+- `core/database/sqlc.yaml`
 
 Workflow:
 1. Change the model in `internal/services/<name>/model.go`.

@@ -21,7 +21,10 @@ your-project/
 │
 ├── core/                        # Framework packages — import freely, do not edit
 │   ├── config/                  # Env/config loading (viper)
-│   ├── database/                # DB connection and GORM wrapper
+│   ├── database/                # DB connection, GORM wrapper, and driver registry
+│   │   ├── drivers/             # One file per DB driver (delete unused ones)
+│   │   ├── atlas.hcl            # Atlas migration config
+│   │   └── sqlc.yaml            # SQLC codegen config
 │   ├── errors/                  # Standardized AppError types (ErrNotFound, etc.)
 │   ├── validator/               # Request validation (go-playground/validator)
 │   └── console/                 # CLI command runner, logger, colors
@@ -52,8 +55,6 @@ your-project/
 │   └── main.go                  # Entry point
 │
 ├── .env.example                 # Environment variable template
-├── atlas.hcl                    # Atlas migration config
-├── sqlc.yaml                    # SQLC codegen config
 ├── air.toml                     # Live-reload config (air)
 └── Dockerfile                   # Container build
 ```

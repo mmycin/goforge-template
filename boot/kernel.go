@@ -12,6 +12,7 @@ import (
 	"github.com/mmycin/goforge/boot/server"
 	"github.com/mmycin/goforge/core/config"
 	"github.com/mmycin/goforge/core/database"
+	_ "github.com/mmycin/goforge/core/database/drivers" // registers all DB driver factories via init()
 	"github.com/mmycin/goforge/core/events"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"

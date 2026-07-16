@@ -12,6 +12,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// atlasConfig is the path to the Atlas config file relative to the project root.
+// Atlas always runs from the project root (where go.mod lives), so all paths
+// inside atlas.hcl (migrations dir, go run program) remain root-relative.
+const atlasConfig = "core/database/atlas.hcl"
+
+// sqlcConfig is the path to the sqlc config file relative to the project root.
+const sqlcConfig = "core/database/sqlc.yaml"
+
 var loaderCmd = &cobra.Command{
 	Use:   "loader",
 	Short: "Run GORM schema loader",
@@ -37,16 +45,18 @@ func init() {
 
 func runLoader() {
 	models := services.Model()
-	// Load config to get driver
+
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+
 	driver := cfg.DB.Connection
 	if driver == "" {
 		driver = "sqlite"
 	}
+
 	loader := gormschema.New(driver)
 	stmts, err := loader.Load(models...)
 	if err != nil {
@@ -57,12 +67,12 @@ func runLoader() {
 }
 
 func runMigrate() {
-	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+
 	migrator := cfg.DB.Migrator
 	if migrator == "" {
 		migrator = "atlas"
@@ -71,21 +81,19 @@ func runMigrate() {
 
 	if migrator == "gorm" {
 		fmt.Println("→ Starting GORM AutoMigrate...")
-		// Connect to DB
+
 		db, err := database.Connect(cfg.DB)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Database connection failed: %v\n", err)
 			os.Exit(1)
 		}
 
-		// Get GORM instance
 		gormDB, err := db.GetGorm()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		// AutoMigrate
 		models := services.Model()
 		if err := gormDB.AutoMigrate(models...); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: AutoMigrate failed: %v\n", err)
@@ -96,24 +104,22 @@ func runMigrate() {
 	}
 
 	fmt.Println("→ Running Atlas migrate apply...")
-	dbConn := cfg.DB.Connection
-	dbName := cfg.DB.Name
-	dbUser := cfg.DB.Username
-	dbPass := cfg.DB.Password
-	dbHost := cfg.DB.Host
-	dbPort := fmt.Sprintf("%d", cfg.DB.Port)
-	dbDevName := cfg.DB.DevName
 
 	atlasEnv := os.Environ()
-	atlasEnv = append(atlasEnv, "DB_CONNECTION="+dbConn)
-	atlasEnv = append(atlasEnv, "DB_NAME="+dbName)
-	atlasEnv = append(atlasEnv, "DB_USERNAME="+dbUser)
-	atlasEnv = append(atlasEnv, "DB_PASSWORD="+dbPass)
-	atlasEnv = append(atlasEnv, "DB_HOST="+dbHost)
-	atlasEnv = append(atlasEnv, "DB_PORT="+dbPort)
-	atlasEnv = append(atlasEnv, "DB_DEV_NAME="+dbDevName)
+	atlasEnv = append(atlasEnv, "DB_CONNECTION="+cfg.DB.Connection)
+	atlasEnv = append(atlasEnv, "DB_NAME="+cfg.DB.Name)
+	atlasEnv = append(atlasEnv, "DB_USERNAME="+cfg.DB.Username)
+	atlasEnv = append(atlasEnv, "DB_PASSWORD="+cfg.DB.Password)
+	atlasEnv = append(atlasEnv, "DB_HOST="+cfg.DB.Host)
+	atlasEnv = append(atlasEnv, "DB_PORT="+fmt.Sprintf("%d", cfg.DB.Port))
+	atlasEnv = append(atlasEnv, "DB_DEV_NAME="+cfg.DB.DevName)
 
-	cmd := exec.Command("atlas", "migrate", "apply", "--env", "gorm")
+	// --config points Atlas at core/database/atlas.hcl.
+	// All paths inside that file are still relative to CWD (the project root).
+	cmd := exec.Command("atlas", "migrate", "apply",
+		"--env", "gorm",
+		"--config", atlasConfig,
+	)
 	cmd.Env = atlasEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -7,6 +7,13 @@
 cmd.exe
 bin/*
 tmp/*
+/bin/
+/dist/
+*.out
+*.test
+*.out
+coverage.out
+coverage.html
 
 # Database files
 *.db
@@ -25,3 +32,14 @@ internal/database/gen/
 
 # Air live-reload temp
 tmp/
+
+go.work
+go.work.sum
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
