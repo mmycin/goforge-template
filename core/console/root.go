@@ -32,4 +32,7 @@ func Execute() error {
 func init() {
 	// Add all subcommands
 	rootCmd.AddCommand(serveCmd)
+
+	// Default command: running the binary with no args starts the server.
+	rootCmd.RunE = serveCmd.RunE
 }
