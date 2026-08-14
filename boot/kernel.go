@@ -3,7 +3,6 @@ package boot
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,14 +19,17 @@ import (
 
 // App holds all core application dependencies.
 type App struct {
-	Config     *config.AllConfig
-	Database   *database.Database
-	EventBus   *events.EventBus
-	HTTPServer *server.HTTPServer
-	GRPCServer *server.GRPCServer
+	Config   *config.AllConfig
+	Database *database.Database
+	EventBus *events.EventBus
+	// Servers is the list of servers to run concurrently.
+	// Add or remove a server here — kernel.go never needs to change again.
+	Servers []server.Server
 }
 
-// NewApp creates and bootstraps a new App instance without pre-initialized services.
+// NewApp creates and bootstraps a new App instance.
+// It always starts the HTTP server and conditionally starts gRPC when enabled
+// in config. Use NewAppWithServices for finer-grained control.
 func NewApp(httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) (*App, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -39,15 +41,13 @@ func NewApp(httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) (
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	httpSrv := server.NewHTTPServer(cfg, httpRouters)
-	grpcSrv := server.NewGRPCServer(cfg, grpcRegistries)
+	servers := buildServers(cfg, httpRouters, grpcRegistries)
 
 	return &App{
-		Config:     cfg,
-		Database:   db,
-		EventBus:   events.New(),
-		HTTPServer: httpSrv,
-		GRPCServer: grpcSrv,
+		Config:   cfg,
+		Database: db,
+		EventBus: events.New(),
+		Servers:  servers,
 	}, nil
 }
 
@@ -55,25 +55,36 @@ func NewApp(httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) (
 // bus is created in core/console/serve.go and passed in so listeners registered
 // during InitializeServices are already attached before Start() is called.
 func NewAppWithServices(
-	cfg            *config.AllConfig,
-	db             *database.Database,
-	bus            *events.EventBus,
-	httpRouters    []server.Router,
-	grpcRegistries []server.GRPCRegistry,
+	cfg  *config.AllConfig,
+	db   *database.Database,
+	bus  *events.EventBus,
+	servers []server.Server,
 ) (*App, error) {
-	httpSrv := server.NewHTTPServer(cfg, httpRouters)
-	grpcSrv := server.NewGRPCServer(cfg, grpcRegistries)
-
 	return &App{
-		Config:     cfg,
-		Database:   db,
-		EventBus:   bus,
-		HTTPServer: httpSrv,
-		GRPCServer: grpcSrv,
+		Config:   cfg,
+		Database: db,
+		EventBus: bus,
+		Servers:  servers,
 	}, nil
 }
 
-// Start starts all servers and manages graceful shutdown.
+// buildServers constructs the default server slice from config.
+// HTTP is always included; gRPC is added when GRPC.Enable is true.
+func buildServers(cfg *config.AllConfig, httpRouters []server.Router, grpcRegistries []server.GRPCRegistry) []server.Server {
+	servers := []server.Server{
+		server.NewHTTPServer(cfg, httpRouters),
+	}
+	if cfg.GRPC.Enable {
+		servers = append(servers, server.NewGRPCServer(cfg, grpcRegistries))
+	}
+	return servers
+}
+
+// Start runs all registered servers concurrently and manages graceful shutdown.
+// Every server is started in its own goroutine paired with a shutdown goroutine
+// that fires when the OS signal context is cancelled.
+// To add a new server type, implement server.Server and append it to App.Servers
+// before calling Start — no changes to this method are needed.
 func (app *App) Start() error {
 	log.Info().Msg("Initializing GoForge Server")
 
@@ -82,49 +93,36 @@ func (app *App) Start() error {
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// --- HTTP Server ---
-	g.Go(func() error {
-		if err := app.HTTPServer.Start(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("HTTP server failed")
-			return err
-		}
-		return nil
-	})
+	for _, srv := range app.Servers {
+		srv := srv // capture loop variable
 
-	g.Go(func() error {
-		<-gCtx.Done()
-		log.Info().Msg("Shutting down HTTP server...")
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := app.HTTPServer.Stop(shutdownCtx); err != nil {
-			log.Error().Err(err).Msg("HTTP server forced to shutdown")
-			return err
-		}
-		log.Info().Msg("HTTP server stopped gracefully")
-		return nil
-	})
-
-	// --- gRPC Server ---
-	if app.Config.GRPC.Enable {
+		// Start the server.
 		g.Go(func() error {
-			if err := app.GRPCServer.Start(); err != nil {
-				log.Error().Err(err).Msg("gRPC server failed")
+			if err := srv.Start(); err != nil {
+				log.Error().Err(err).Str("server", srv.Name()).Msg("Server failed")
 				return err
 			}
 			return nil
 		})
 
+		// Paired shutdown goroutine.
 		g.Go(func() error {
 			<-gCtx.Done()
-			log.Info().Msg("Shutting down gRPC server...")
-			app.GRPCServer.StopWithTimeout(10 * time.Second)
+			log.Info().Str("server", srv.Name()).Msg("Shutting down server...")
+
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := srv.Stop(shutdownCtx); err != nil {
+				log.Error().Err(err).Str("server", srv.Name()).Msg("Server forced to shutdown")
+				return err
+			}
+			log.Info().Str("server", srv.Name()).Msg("Server stopped gracefully")
 			return nil
 		})
 	}
 
-	// Wait for all servers to stop.
+	// Wait for all servers and their shutdown goroutines to return.
 	if err := g.Wait(); err != nil {
 		if err != context.Canceled {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
@@ -132,7 +130,7 @@ func (app *App) Start() error {
 		}
 	}
 
-	// Drain the event bus after servers are down — no new events can arrive.
+	// Drain the event bus after all servers are down — no new events can arrive.
 	log.Info().Msg("Draining event bus...")
 	drainCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

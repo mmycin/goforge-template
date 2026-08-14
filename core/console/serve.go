@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/mmycin/goforge/boot"
+	"github.com/mmycin/goforge/boot/server"
 	"github.com/mmycin/goforge/core/config"
 	"github.com/mmycin/goforge/core/database"
 	"github.com/mmycin/goforge/core/events"
@@ -40,7 +41,16 @@ var serveCmd = &cobra.Command{
 			Bus: bus,
 		})
 
-		app, err := boot.NewAppWithServices(cfg, db, bus, routers, grpcRegistries)
+		// Build the server list. HTTP is always included.
+		// To swap out or add a server, edit only this block.
+		servers := []server.Server{
+			server.NewHTTPServer(cfg, routers),
+		}
+		if cfg.GRPC.Enable {
+			servers = append(servers, server.NewGRPCServer(cfg, grpcRegistries))
+		}
+
+		app, err := boot.NewAppWithServices(cfg, db, bus, servers)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create app")
 			os.Exit(1)

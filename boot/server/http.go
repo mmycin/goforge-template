@@ -12,6 +12,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Server is the common interface every server type must satisfy.
+// Implement this interface to plug a new server kind (HTTP, gRPC, GraphQL, …)
+// into the application without touching boot/kernel.go.
+type Server interface {
+	// Name returns a human-readable identifier used in log messages.
+	Name() string
+	// Start begins accepting connections. It must block until the server
+	// is stopped or encounters a fatal error.
+	Start() error
+	// Stop shuts the server down gracefully. The provided context sets the
+	// deadline; implementations should force-stop when the context expires.
+	Stop(ctx context.Context) error
+}
+
 // Router interface for service route registration
 type Router interface {
 	Register(engine *gin.Engine)
@@ -77,6 +91,14 @@ func NewHTTPServer(cfg *config.AllConfig, routers []Router) *HTTPServer {
 		server:    srv,
 		tlsConfig: &cfg.HTTP,
 	}
+}
+
+// Name returns the server identifier used in log messages.
+func (s *HTTPServer) Name() string {
+	if s.tlsConfig.TLSEnabled {
+		return "HTTPS"
+	}
+	return "HTTP"
 }
 
 // Start starts the HTTP server (plain HTTP or HTTPS depending on config)
