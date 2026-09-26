@@ -33,7 +33,7 @@ COPY . .
 
 # Build the application with optimizations
 # -s -w: Omit symbol table and debug information to reduce binary size
-RUN go build -ldflags="-s -w" -o goforge ./cmd/main.go
+RUN go build -ldflags="-s -w" -o goforge ./app
 
 # Stage 2: Production Runtime
 FROM alpine:3.21 AS runner
@@ -56,7 +56,7 @@ RUN chown appuser:appuser goforge && chmod +x goforge
 USER appuser
 
 # Expose the default application port
-EXPOSE 8080
+EXPOSE 3000
 
 # Standard entrypoint for the microservice
 ENTRYPOINT ["./goforge"]
