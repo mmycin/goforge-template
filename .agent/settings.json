@@ -9,5 +9,6 @@
     "README.md",
     ".agent/commands/context.md",
     ".agent/rules/architecture.md"
-  ]
+  ],
+  "module_path": "github.com/mmycin/GoForge"
 }

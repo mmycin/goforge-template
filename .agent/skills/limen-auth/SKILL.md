@@ -2,7 +2,7 @@
 
 Use this skill when a task involves user registration, login, sessions, password hashing, or any auth-related feature.
 
-Full guide: `#[[file:../../../tmp/AUTH.md]]`
+Full guide: See `goforge-docs/docs/framework/` for the complete authentication reference, and the `limen-auth` skill scripts for setup.
 
 ## What Limen provides
 - bcrypt password hashing via the `credential-password` plugin

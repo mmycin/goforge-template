@@ -19,5 +19,5 @@ Project facts:
 Non-negotiables:
 - No package-level state in `internal/` or `core/`.
 - Use constructor-based dependency injection.
-- Imports must use `github.com/mmycin/goforge/boot/...` or `github.com/mmycin/goforge/core/...`.
+- Imports must use `github.com/mmycin/GoForge/boot/...` or `github.com/mmycin/GoForge/core/...`.
 - Keep HTTP, gRPC, config, and database changes consistent with existing patterns.
